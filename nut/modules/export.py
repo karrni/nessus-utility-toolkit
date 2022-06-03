@@ -1,5 +1,5 @@
-import os
 import xml.etree.cElementTree as etree
+from pathlib import Path
 
 from nut.modules.logger import NUTAdapter
 from nut.modules.nessus import nessus
@@ -7,14 +7,14 @@ from nut.modules.utils import mkdir, secure_filename
 
 logger = NUTAdapter()
 
-EXPORT_DIR = ""
-
 
 class ScanExportXml:
     def __init__(self):
         self._tree = None
         self._report = None  # The "Report" element contains the actual hosts
-        self._seen = dict()  # To keep track of all indexed hosts and vulns to avoid duplicates
+        self._seen = (
+            dict()
+        )  # To keep track of all indexed hosts and vulns to avoid duplicates
 
     def add(self, xml_export):
         cur_tree = etree.ElementTree(etree.fromstring(xml_export))
@@ -82,15 +82,17 @@ def export_scan(scan_ids, scan_name, file):
     scan_export.write(file, scan_name)
 
 
-def export(scan_ids, merge):
+def export(scan_ids, merge, outdir=None):
+    if not outdir:
+        outdir = ""
+
     if merge:
         logger.info("Exporting merged scan")
         scan_name = "Merged Scan"
 
-        outdir = EXPORT_DIR
-        outfile = os.path.join(outdir, f"{secure_filename(scan_name)}.xml")
-
         mkdir(outdir)
+        outfile = Path(outdir) / f"{secure_filename(scan_name)}.xml"
+
         export_scan(scan_ids, scan_name, outfile)
     else:
         logger.info("Exporting scan(s)")
@@ -100,8 +102,8 @@ def export(scan_ids, merge):
             folder_id = nessus.get_scan_folder(scan_id)
             folder_name = nessus.get_folder_name(folder_id)
 
-            outdir = os.path.join(EXPORT_DIR, folder_name)
-            outfile = os.path.join(outdir, f"{secure_filename(scan_name)}.xml")
+            folder_dir = Path(outdir) / folder_name
+            mkdir(folder_dir)
+            outfile = folder_dir / f"{secure_filename(scan_name)}.xml"
 
-            mkdir(outdir)
             export_scan([scan_id], scan_name, outfile)

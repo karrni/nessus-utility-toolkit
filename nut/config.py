@@ -1,5 +1,5 @@
-import shutil
 import configparser
+import shutil
 from pathlib import Path
 
 # the nessus-utility-toolkit folder that contains the example config

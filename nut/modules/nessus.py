@@ -1,5 +1,5 @@
-import sys
 import json
+import sys
 import time
 from urllib.parse import urljoin
 
@@ -52,11 +52,24 @@ class Nessus:
         # which essentially unlocks the restricted API. So this is exactly what is done here.
         js_url = urljoin(self.url, "nessus6.js")
         ness_js = requests.get(js_url, verify=False).content
-        token = str(ness_js).split('getApiToken",value:function(){return"', 1)[1].split('"', 1)[0]
+        token = (
+            str(ness_js)
+            .split('getApiToken",value:function(){return"', 1)[1]
+            .split('"', 1)[0]
+        )
         self.headers["X-API-Token"] = token
         self.unlocked = True
 
-    def action(self, method, path, params=None, data=None, files=None, json_req=True, download=False):
+    def action(
+        self,
+        method,
+        path,
+        params=None,
+        data=None,
+        files=None,
+        json_req=True,
+        download=False,
+    ):
         if not self.initialized:
             raise NessusError("Not yet initialized")
 
@@ -69,12 +82,24 @@ class Nessus:
         url = urljoin(self.url, path)
 
         try:
-            res = requests.request(method, url, headers=headers, params=params, json=data, files=files, verify=False)
+            res = requests.request(
+                method,
+                url,
+                headers=headers,
+                params=params,
+                json=data,
+                files=files,
+                verify=False,
+            )
         except requests.exceptions.MissingSchema:
-            logger.error("Missing schema when connecting to Nessus. Is the config correct? (~/.config/nut.conf)")
+            logger.error(
+                "Missing schema when connecting to Nessus. Is the config correct? (~/.config/nut.conf)"
+            )
             sys.exit(1)
         except requests.exceptions.ConnectionError:
-            logger.error("Could not connect to Nessus. Is it reachable and is the config correct? (~/.config/nut.conf)")
+            logger.error(
+                "Could not connect to Nessus. Is it reachable and is the config correct? (~/.config/nut.conf)"
+            )
             sys.exit(1)
 
         if download:
@@ -96,7 +121,9 @@ class Nessus:
 
                     # TODO error logging
                     if ret["error"] == "Invalid Credentials":
-                        logger.error("Invalid Nessus credentials. Please update the config file.")
+                        logger.error(
+                            "Invalid Nessus credentials. Please update the config file."
+                        )
                         sys.exit(1)
                     else:
                         raise NessusError(ret["error"])
@@ -159,7 +186,10 @@ class Nessus:
     def export_scan(self, scan_id, history_id):
         logger.debug(f"Exporting scan {scan_id}, history item {history_id}")
         res = self.action(
-            "POST", f"/scans/{scan_id}/export", params={"history_id": history_id}, data={"format": "nessus"}
+            "POST",
+            f"/scans/{scan_id}/export",
+            params={"history_id": history_id},
+            data={"format": "nessus"},
         )
 
         # TODO error checking if file exists because it doesn't when the scan can't be exported
@@ -175,7 +205,9 @@ class Nessus:
         res = self.action("POST", "/file/upload", files=files, json_req=False)
 
         tmp_filename = res["fileuploaded"]
-        return self.action("POST", "/scans/import", data={"file": tmp_filename, "folder_id": folder_id})
+        return self.action(
+            "POST", "/scans/import", data={"file": tmp_filename, "folder_id": folder_id}
+        )
 
 
 nessus = Nessus()

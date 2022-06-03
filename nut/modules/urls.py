@@ -4,7 +4,10 @@ from nut.modules.nessus import nessus
 logger = NUTAdapter()
 
 
-def urls(scan_ids):
+def urls(scan_ids, outfile=None):
+    if not outfile:
+        outfile = "webservers.txt"
+
     logger.info("Generating url list")
     url_list = set()
 
@@ -34,5 +37,5 @@ def urls(scan_ids):
                 for host in hosts:
                     _add(proto, host["hostname"], port)
 
-    with open("webservers.txt", "w") as fp:
+    with open(outfile, "w") as fp:
         fp.write("\n".join(url_list))
