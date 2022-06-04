@@ -23,6 +23,14 @@ To upgrade, simply run
 pipx upgrade nut
 ```
 
+## Configuration
+
+To use nut, both the Nessus URL and the corresponding API tokens must be filled in the configuration file which is located under `~/.config/nut.conf`. Upon first run, the example config file will be copied to this location.
+
+The Nessus URL must not contain a path, so for example `https://nessus.local:8834`.
+
+The API tokens can be generated under `/#/settings/my-account/api-keys`, which is under User (top right) > My Account > API Keys.
+
 # Usage
 
 Nut accepts **any amount and combination of scans and folders**. Scans have to be their ID, folders can be their ID or name. Folders are then resolved and scans contained within them are merged with the others. The resulting list of scan IDs is then passed to the respective module.
@@ -35,8 +43,8 @@ nut <MODULE> -s <SCAN> <SCAN> ... -f <FOLDER> <FOLDER> ...
 
 ### Where do I find ...
 
-- **Scan ID** - can be found in the URL when viewing the scan (`/scans/reports/<SCAN_ID>/hosts`)
-- **Folder ID** - in the URL when viewing the folder (`/scans/folders/<FOLDER_ID>`)
+- **Scan ID** - can be found in the URL when viewing the scan (`/#/scans/reports/<SCAN_ID>/hosts`)
+- **Folder ID** - in the URL when viewing the folder (`/#/scans/folders/<FOLDER_ID>`)
 - **Folder Name** - the exact name as it appears in the sidebar (e.g. `"My Scans"` or `2022-04-Client`)
 
 # Modules
