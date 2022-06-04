@@ -1,6 +1,8 @@
+import sys
 import xml.etree.cElementTree as etree
 from pathlib import Path
 
+from nut.config import settings
 from nut.modules.logger import NUTAdapter
 from nut.modules.nessus import nessus
 from nut.modules.utils import mkdir, secure_filename
@@ -12,9 +14,7 @@ class ScanExportXml:
     def __init__(self):
         self._tree = None
         self._report = None  # The "Report" element contains the actual hosts
-        self._seen = (
-            dict()
-        )  # To keep track of all indexed hosts and vulns to avoid duplicates
+        self._seen = dict()  # To keep track of all indexed hosts and vulns to avoid duplicates
 
     def add(self, xml_export):
         cur_tree = etree.ElementTree(etree.fromstring(xml_export))
@@ -65,9 +65,16 @@ class ScanExportXml:
 def export_scan(scan_ids, scan_name, file):
     """Downloads and merges all supplied scans into one and write it to file."""
     scan_export = ScanExportXml()
+    success = False
 
     for scan_id in scan_ids:
         scan_details = nessus.get_scan_details(scan_id)
+
+        # If the current scan doesn't have any history items it can't be exported because
+        # it either hasn't been run, or it failed in some way we need to skip it
+        if not scan_details["history"]:
+            logger.error(f"Scan with ID {scan_id} doesn't have a history, did it run and finish?")
+            continue
 
         # Nessus scans can be run multiple times which will create multiple history items.
         # When exporting a scan properly (and completely) every history item needs to be
@@ -78,13 +85,19 @@ def export_scan(scan_ids, scan_name, file):
             if history_item["status"] in ["completed", "imported", "canceled"]:
                 content = nessus.export_scan(scan_id, history_item["history_id"])
                 scan_export.add(content)
+                success = True
 
+    # If there wasn't a single valid scan we inform the user and abort
+    if not success:
+        logger.error("No scan could be exported :(")
+        sys.exit(1)
+
+    logger.info(f'Writing file "{file}"')
     scan_export.write(file, scan_name)
 
 
-def export(scan_ids, merge, outdir=None):
-    if not outdir:
-        outdir = ""
+def export(scan_ids, merge):
+    outdir = settings.args.out or ""
 
     if merge:
         logger.info("Exporting merged scan")

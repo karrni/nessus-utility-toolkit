@@ -2,6 +2,17 @@ import configparser
 import shutil
 from pathlib import Path
 
+
+class NutSettings:
+    def __init__(self):
+        # arguments passed on the command line
+        self.args = None
+
+        # settings stored in the configuration file
+        self.config = configparser.ConfigParser()
+        self.config.read(config_dir / "nut.conf")
+
+
 # the nessus-utility-toolkit folder that contains the example config
 location = Path(__file__).resolve().parent
 
@@ -16,6 +27,5 @@ if not config_dir.exists():
 if not config_file.exists():
     shutil.copy(location / "nut.conf.example", config_dir / "nut.conf")
 
-# the actual variable that stores the config
-settings = configparser.ConfigParser()
-settings.read(config_dir / "nut.conf")
+# the actual instance that stores the config
+settings = NutSettings()

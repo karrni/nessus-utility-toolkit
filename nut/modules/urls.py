@@ -1,12 +1,14 @@
+import sys
+
+from nut.config import settings
 from nut.modules.logger import NUTAdapter
 from nut.modules.nessus import nessus
 
 logger = NUTAdapter()
 
 
-def urls(scan_ids, outfile=None):
-    if not outfile:
-        outfile = "webservers.txt"
+def urls(scan_ids):
+    outfile = settings.args.out or "webservers.txt"
 
     logger.info("Generating url list")
     url_list = set()
@@ -18,17 +20,28 @@ def urls(scan_ids, outfile=None):
         else:
             url_list.add(f"{_proto}://{_host}:{_port}")
 
+    success = False
+
     for scan_id in scan_ids:
         # Service Detection - Plugin ID 22964
         #  Shows www as svc_name for both http and https, but the output text is different
         #   http: A web server is running on this port.
         #   https: A web server is running on this port through ...
         service_detection = nessus.get_plugin_details(scan_id, 22964)
-        # TODO: error handling
+
+        # If the scan hasn't been run, has failed, or if the plugin simply doesn't exist
+        # we need to skip it
+        if not service_detection:
+            logger.error(f"Scan with ID {scan_id} doesn't have service detection, did it run and finish?")
+            continue
+
         for output in service_detection["outputs"]:
             p_out = output["plugin_output"]
             if not p_out.startswith("A web server is running"):
                 continue
+
+            # At this point we have a valid entry
+            success = True
 
             proto = "https" if "through" in p_out else "http"
 
@@ -37,5 +50,11 @@ def urls(scan_ids, outfile=None):
                 for host in hosts:
                     _add(proto, host["hostname"], port)
 
+    # If there wasn't a single valid scan we inform the user and abort
+    if not success:
+        logger.error("Not a single scan has found a web server :(")
+        sys.exit(1)
+
     with open(outfile, "w") as fp:
+        logger.info(f'Writing file "{outfile}"')
         fp.write("\n".join(url_list))

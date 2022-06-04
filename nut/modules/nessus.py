@@ -52,11 +52,7 @@ class Nessus:
         # which essentially unlocks the restricted API. So this is exactly what is done here.
         js_url = urljoin(self.url, "nessus6.js")
         ness_js = requests.get(js_url, verify=False).content
-        token = (
-            str(ness_js)
-            .split('getApiToken",value:function(){return"', 1)[1]
-            .split('"', 1)[0]
-        )
+        token = str(ness_js).split('getApiToken",value:function(){return"', 1)[1].split('"', 1)[0]
         self.headers["X-API-Token"] = token
         self.unlocked = True
 
@@ -92,9 +88,7 @@ class Nessus:
                 verify=False,
             )
         except requests.exceptions.MissingSchema:
-            logger.error(
-                "Missing schema when connecting to Nessus. Is the config correct? (~/.config/nut.conf)"
-            )
+            logger.error("Missing schema when connecting to Nessus. Is the config correct? (~/.config/nut.conf)")
             sys.exit(1)
         except requests.exceptions.ConnectionError:
             logger.error(
@@ -121,9 +115,7 @@ class Nessus:
 
                     # TODO error logging
                     if ret["error"] == "Invalid Credentials":
-                        logger.error(
-                            "Invalid Nessus credentials. Please update the config file."
-                        )
+                        logger.error("Invalid Nessus credentials. Please update the config file.")
                         sys.exit(1)
                     else:
                         raise NessusError(ret["error"])
@@ -137,9 +129,13 @@ class Nessus:
             print("Something fucky is going on with Nessus")
             logger.error("Something fucky is going on with Nessus")
 
+    # Folders
+
     def get_folders(self):
         logger.debug("GET /folders")
         return self.action("GET", "/folders")["folders"]
+
+    # Scans
 
     def get_scans(self):
         logger.debug("GET /scans")
@@ -161,7 +157,13 @@ class Nessus:
         logger.debug(f"GET /scans/{scan_id}/plugins/{plugin_id}")
         return self.action("GET", f"/scans/{scan_id}/plugins/{plugin_id}")
 
-    # Utility Methods
+    # Editor
+
+    def get_scan_templates(self):
+        logger.debug("GET /editor/scan/templates")
+        return self.action("GET", "/editor/scans/templates")["templates"]
+
+    # Non-standard auxiliary methods
 
     def get_folder_name(self, folder_id):
         logger.debug(f"Getting folder name for id {folder_id}")
@@ -182,6 +184,8 @@ class Nessus:
     def get_scan_folder(self, scan_id):
         logger.debug(f"Getting folder for scan {scan_id}")
         return self.get_scan_details(scan_id)["info"]["folder_id"]
+
+    # Common tasks
 
     def export_scan(self, scan_id, history_id):
         logger.debug(f"Exporting scan {scan_id}, history item {history_id}")
@@ -205,9 +209,7 @@ class Nessus:
         res = self.action("POST", "/file/upload", files=files, json_req=False)
 
         tmp_filename = res["fileuploaded"]
-        return self.action(
-            "POST", "/scans/import", data={"file": tmp_filename, "folder_id": folder_id}
-        )
+        return self.action("POST", "/scans/import", data={"file": tmp_filename, "folder_id": folder_id})
 
 
 nessus = Nessus()

@@ -17,55 +17,32 @@ def main():
     # common args that all subparsers inherit from
     common_parser = argparse.ArgumentParser(add_help=False)
     common_parser.add_argument("--debug", action="store_true", default=False)
-    common_parser.add_argument(
-        "-s", "--scan", nargs="*", type=int, default=[], help="One or more scan IDs"
-    )
-    common_parser.add_argument(
-        "-f", "--folder", nargs="*", default=[], help="One or more folder IDs or names"
-    )
+    common_parser.add_argument("-s", "--scan", nargs="*", type=int, default=[], help="One or more scan IDs")
+    common_parser.add_argument("-f", "--folder", nargs="*", default=[], help="One or more folder IDs or names")
 
     # main parser
     parser = argparse.ArgumentParser(
         description=f"""
-    ⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣶⣿⣿⣶⣤⣄⡀
-    ⠀⠀⠀⣀⣠⣴⣶⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣶⣦⣄⣀
-    ⣤⣶⣿⣿⣿⣿⣿⡿⠟⢋⣉⣀⣤⣤⣀⣉⡙⠻⢿⣿⣿⣿⣿⣿⣶⣤
-    ⣿⣿⣿⣿⣿⡟⠉⣠⠞⠛⢉⣉⣉⣉⣉⡉⠛⠳⣄⠉⢻⣿⣿⣿⣿⣿
-    ⣿⣿⣿⣿⡟⠀⠊⣠⠶⠛⢛⣋⣉⣉⣙⡛⠛⠶⣄⠑⠄⢻⣿⣿⣿⣿
-    ⣿⣿⣿⣿⡇⠀⠈⢁⡴⠞⠛⠉⠉⠉⠉⠛⠳⢦⡈⠁⠀⢸⣿⣿⣿⣿
-    ⣿⣿⣿⣿⣷⡄⠐⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠂⢠⣾⣿⣿⣿⣿
-    ⣿⣿⣿⣿⣿⣿⣦⣀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣴⣿⣿⣿⣿⣿⣿
-    ⣌⣉⠙⠻⠿⣿⣿⣿⣿⣶⣶⣤⣤⣤⣤⣶⣶⣿⣿⣿⣿⠿⠟⠋⣉⣡
-    ⣿⣿⣿⣶⣦⣄⣉⠙⠻⢿⣿⣿⣿⣿⣿⣿⡿⠟⠋⣉⣠⣴⣶⣿⣿⣿
-    ⠿⢿⣿⣿⣿⣿⣿⣿⣶⣤⣈⡉⠛⠛⢉⣁⣤⣶⣿⣿⣿⣿⣿⣿⡿⠿
-    ⠀⠀⠈⠙⠻⠿⣿⣿⣿⣿⣿⣿⡇⢸⣿⣿⣿⣿⣿⣿⠿⠟⠋⠁
-    ⠀⠀⠀⠀⠀⠀⠀⠈⠉⠛⠿⢿⡇⢸⡿⠿⠛⠉⠁
-    
-              N.U.T.
-      Nessus Utility Toolkit
+      _____
+     / _ \\ \\        N.U.T.                                    
+    ( (_) )-)  Nessus Utility Toolkit
+     \\___/_/  
     """,
         formatter_class=RawTextHelpFormatter,
     )
     subparsers = parser.add_subparsers(dest="action", required=True)
 
+    # Export
+
     export_parser = subparsers.add_parser("export", parents=[common_parser])
-    export_parser.add_argument(
-        "--merge", action="store_true", default=False, help="Merge all scans into one"
-    )
-    export_parser.add_argument(
-        "-o", metavar="DIRECTORY", dest="out", default=None, help="Output directory"
-    )
+    export_parser.add_argument("--merge", action="store_true", default=False, help="Merge all scans into one")
+    export_parser.add_argument("-o", metavar="DIRECTORY", dest="out", default=None, help="Output directory")
 
     urls_parser = subparsers.add_parser("urls", parents=[common_parser])
-    urls_parser.add_argument(
-        "-o",
-        metavar="FILE",
-        dest="out",
-        default=None,
-        help='Output file, default: "webservers.txt"',
-    )
+    urls_parser.add_argument("-o", metavar="FILE", dest="out", default=None, help="Output file")
 
     args = parser.parse_args()
+    settings.args = args
 
     # set up logger after parsing the args, so we can enable debug output or not
     setup_logger(logging.DEBUG if args.debug else logging.INFO)
@@ -78,9 +55,9 @@ def main():
 
     # initialize nessus after parsing
     nessus.init(
-        settings["nessus"]["url"],
-        settings["nessus"]["access_key"],
-        settings["nessus"]["secret_key"],
+        settings.config["nessus"]["url"],
+        settings.config["nessus"]["access_key"],
+        settings.config["nessus"]["secret_key"],
     )
 
     # generate list of scan ids from the specified scans and folders
@@ -91,11 +68,11 @@ def main():
 
     # if we want to export
     if args.action == "export":
-        export(scan_ids, args.merge, args.out)
+        export(scan_ids, args.merge)
 
     # if we want a url list
     elif args.action == "urls":
-        urls(scan_ids, args.out)
+        urls(scan_ids)
 
     logger.success("All done :3")
 
