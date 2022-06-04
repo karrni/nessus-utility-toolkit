@@ -31,7 +31,7 @@ def urls(scan_ids):
 
         # If the scan hasn't been run, has failed, or if the plugin simply doesn't exist
         # we need to skip it
-        if not service_detection:
+        if not service_detection or not service_detection["outputs"]:
             logger.error(f"Scan with ID {scan_id} doesn't have service detection, did it run and finish?")
             continue
 
