@@ -3,6 +3,7 @@
 
 import argparse
 import logging
+import os
 from argparse import RawTextHelpFormatter
 
 from nut.config import settings
@@ -55,9 +56,9 @@ def main():
 
     # initialize nessus after parsing
     nessus.init(
-        settings.config["nessus"]["url"],
-        settings.config["nessus"]["access_key"],
-        settings.config["nessus"]["secret_key"],
+        os.environ.get("NESSUS_URL", settings.config["nessus"]["url"]),
+        os.environ.get("NESSUS_ACCESS_KEY", settings.config["nessus"]["access_key"]),
+        os.environ.get("NESSUS_SECRET_KEY", settings.config["nessus"]["secret_key"]),
     )
 
     # generate list of scan ids from the specified scans and folders
