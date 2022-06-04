@@ -1,6 +1,6 @@
 <div align="center">
     <h1>
-        🔩 N.U.T
+        🔩 N.U.T.
         <br>
         <br>
     </h1>
