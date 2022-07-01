@@ -8,7 +8,7 @@
 <p align="center">
     The purpose of this tool is to automate and simplify common and time-consuming tasks involving Nessus.
     <br>
-    It is still a work in progress and will be extended as I come across new, annoying processes.
+    It's still a work in progress and will be extended as I come across new, annoying processes.
 </p>
 
 # Installation
@@ -65,3 +65,64 @@ This module extracts all web servers found by the "Service Detection" plugin and
 ```
 nut urls -s <SCAN> -f <FOLDER>
 ```
+
+## Create
+
+This module allows to create scans automatically. It takes a JSON/YAML file that contains one or more scan definitions, which it processes and creates.
+
+```
+nut create -i <INFILE>
+nut create -l  # lists available policies
+```
+
+### Definitions
+
+Scan definitions consist of a name, a policy, and targets. Optionally, folder and description can be defined. It's also possible to define exclusions, which are automatically omitted when generating the target list.
+
+#### Single Scan
+
+Let's say we want to create a scan named "Example Scan" that uses the "All Ports" scan policy in the "Example Folder" folder. The target of this scan is the entire 10.0.0.0/24 network, but we want to exclude 10.0.0.100 because it's a fragile printer. 
+
+```yaml
+scans:
+  Example Scan:
+    description: The whole network without the printer
+    folder: Example Folder
+    policy: All Ports
+    targets:
+      - 10.0.0.0/24
+    exclusions:
+      - 10.0.0.100
+```
+
+#### Multiple Scans
+
+If we want to create multiple scans, it's likely that they will use the same policy or be create in the same folder (each key can have a default value, including targets and exclusions). To avoid unnecessary repetitions, it's possible to define default values that can be overwritten by the respective scans if necessary.
+
+```yaml
+defaults:
+  folder: 2022-07 Customer
+  policy: All Ports
+
+scans:
+  Headquarters:
+    targets:
+      - 10.0.0.0/24
+      - 10.0.1.0/24
+    exclusions:
+      - 10.0.0.100
+      
+  Branch Office:
+    targets:
+      - 10.2.0.0/24
+    exclusions:
+      - 10.2.0.100
+      - 10.2.0.102
+      
+  Production:
+    policy: Custom Fragile Policy
+    targets:
+      - 10.1.2.0/24
+```
+
+
