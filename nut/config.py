@@ -1,31 +1,32 @@
 import configparser
 import shutil
+from argparse import Namespace
 from pathlib import Path
 
-
-class NutSettings:
-    def __init__(self):
-        # arguments passed on the command line
-        self.args = None
-
-        # settings stored in the configuration file
-        self.config = configparser.ConfigParser()
-        self.config.read(config_dir / "nut.conf")
-
-
-# the nessus-utility-toolkit folder that contains the example config
+# path to the nut location
 location = Path(__file__).resolve().parent
 
+# the nut.conf is stored under ~/.config
 config_dir = Path.home() / ".config"
 config_file = config_dir / "nut.conf"
 
-# create the .config dir if it doesn't exist
+
+class NutSettings:
+    """This stores settings from the config file as well as command-line arguments."""
+
+    def __init__(self):
+        self.args = Namespace()
+        self.config = configparser.ConfigParser()
+        self.config.read(config_file)
+
+
+# create ~/.config if it doesn't exist
 if not config_dir.exists():
     config_dir.mkdir()
 
-# create the base config if it doesn't exist yet
+# copy and use example config if it doesn't exist
 if not config_file.exists():
-    shutil.copy(location / "nut.conf.example", config_dir / "nut.conf")
+    shutil.copy(location / "nut.conf.example", config_file)
 
-# the actual instance that stores the config
+# instance that stores the settings
 settings = NutSettings()

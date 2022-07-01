@@ -1,5 +1,5 @@
-import sys
 import xml.etree.cElementTree as etree
+from datetime import datetime
 from pathlib import Path
 
 from nut.config import settings
@@ -35,25 +35,26 @@ class ScanExportXml:
             return
 
         # When adding a new export, cycle through all the hosts
-        for host in cur_report.findall(".//ReportHost"):
-            hostname = host.attrib["name"]
+        else:
+            for host in cur_report.findall(".//ReportHost"):
+                hostname = host.attrib["name"]
 
-            # If the current host has not been seen before, just copy everything
-            if hostname not in self._seen:
-                self._report.append(host)
-                findings = set()
-                for item in host.findall("ReportItem"):
-                    findings.add(item.attrib["port"] + "-" + item.attrib["pluginID"])
-                self._seen[hostname] = findings
+                # If the current host has not been seen before, just copy everything
+                if hostname not in self._seen:
+                    self._report.append(host)
+                    findings = set()
+                    for item in host.findall("ReportItem"):
+                        findings.add(item.attrib["port"] + "-" + item.attrib["pluginID"])
+                    self._seen[hostname] = findings
 
-            # If it has been seen, cycle through the findings and only add the ones that have not been seen before
-            else:
-                report_host = self._tree.find(".//ReportHost[@name='" + hostname + "']")
-                for item in host.findall("ReportItem"):
-                    key = item.attrib["port"] + "-" + item.attrib["pluginID"]
-                    if key not in self._seen[hostname]:
-                        report_host.append(item)
-                        self._seen[hostname].add(key)
+                # If it has been seen, cycle through the findings and only add the ones that have not been seen before
+                else:
+                    report_host = self._tree.find(".//ReportHost[@name='" + hostname + "']")
+                    for item in host.findall("ReportItem"):
+                        key = item.attrib["port"] + "-" + item.attrib["pluginID"]
+                        if key not in self._seen[hostname]:
+                            report_host.append(item)
+                            self._seen[hostname].add(key)
 
     def write(self, file, name=None):
         if name:
@@ -63,7 +64,7 @@ class ScanExportXml:
 
 
 def export_scan(scan_ids, scan_name, file):
-    """Downloads and merges all supplied scans into one and write it to file."""
+    """Download and merge all scan IDs into one and write it to file."""
     scan_export = ScanExportXml()
     success = False
 
@@ -73,7 +74,7 @@ def export_scan(scan_ids, scan_name, file):
         # If the current scan doesn't have any history items it can't be exported because
         # it either hasn't been run, or it failed in some way we need to skip it
         if not scan_details["history"]:
-            logger.error(f"Scan with ID {scan_id} doesn't have a history, did it run and finish?")
+            logger.error(f"Scan ID {scan_id} doesn't have a history - did it run and finish?")
             continue
 
         # Nessus scans can be run multiple times which will create multiple history items.
@@ -89,34 +90,37 @@ def export_scan(scan_ids, scan_name, file):
 
     # If there wasn't a single valid scan we inform the user and abort
     if not success:
-        logger.error("No scan could be exported :(")
-        sys.exit(1)
+        logger.error("No scans could be exported")
+        return
 
     logger.info(f'Writing file "{file}"')
+    mkdir(file.parent)
     scan_export.write(file, scan_name)
 
 
-def export(scan_ids, merge):
-    outdir = settings.args.out or ""
+def export(scan_ids):
+    outdir = settings.args.outdir or ""
 
-    if merge:
+    if settings.args.merge:
         logger.info("Exporting merged scan")
+
         scan_name = "Merged Scan"
 
-        mkdir(outdir)
-        outfile = Path(outdir) / f"{secure_filename(scan_name)}.xml"
+        # add a timestamp and string with the scan ids to the filename
+        t_str = datetime.today().strftime("%Y-%m-%d %H%M%S")
+        file_name = f"{t_str} - {scan_name} - {scan_ids}"
+
+        outfile = Path(outdir) / f"{secure_filename(file_name)}.xml"
 
         export_scan(scan_ids, scan_name, outfile)
     else:
-        logger.info("Exporting scan(s)")
+        logger.info(f"Exporting scan{'s' if len(scan_ids) > 1 else ''}")
         for scan_id in scan_ids:
             scan_name = nessus.get_scan_name(scan_id)
 
             folder_id = nessus.get_scan_folder(scan_id)
             folder_name = nessus.get_folder_name(folder_id)
 
-            folder_dir = Path(outdir) / folder_name
-            mkdir(folder_dir)
-            outfile = folder_dir / f"{secure_filename(scan_name)}.xml"
+            outfile = Path(outdir) / folder_name / f"{secure_filename(scan_name)}.xml"
 
             export_scan([scan_id], scan_name, outfile)

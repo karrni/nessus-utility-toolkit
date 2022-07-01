@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nut"
-version = "0.1.0"
+version = "1.0.0"
 description = ""
 authors = ["karrni <24398546+karrni@users.noreply.github.com>"]
 
@@ -11,6 +11,7 @@ nut = "nut.main:main"
 python = "^3.9"
 requests = "^2.27.1"
 XlsxWriter = "^3.0.3"
+PyYAML = "^6.0"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"

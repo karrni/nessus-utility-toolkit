@@ -1,8 +1,7 @@
-nut.conf
-
-export/
 *.xml
-webservers.txt
+*.txt
+*.json
+*.yaml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -27,6 +27,7 @@ def locked(func):
 
     def _unlock(self, *args, **kwargs):
         if not self.unlocked:
+            logger.info("Alright, we hit a locked endpoint - getting the token")
             self.unlock()
         return func(self, *args, **kwargs)
 
@@ -68,6 +69,12 @@ class Nessus:
     ):
         if not self.initialized:
             raise NessusError("Not yet initialized")
+
+        logger.debug(f"{method} {path}")
+        if params:
+            logger.debug(f"  params: {params}")
+        if data:
+            logger.debug(f"  data:: {data}")
 
         # The .copy() is necessary to truly copy the dict. Otherwise, we would set "Content-Type" and "Accept"
         # globally for every request which would break the file upload
@@ -126,51 +133,22 @@ class Nessus:
 
         # Typically, this shouldn't happen lol
         else:
-            print("Something fucky is going on with Nessus")
             logger.error("Something fucky is going on with Nessus")
 
     # Folders
 
     def get_folders(self):
-        logger.debug("GET /folders")
         return self.action("GET", "/folders")["folders"]
 
-    # Scans
-
-    def get_scans(self):
-        logger.debug("GET /scans")
-        return self.action("GET", "/scans")["scans"]
-
-    def get_folder_scans(self, folder_id):
-        logger.debug(f"GET /scans, folder_id={folder_id}")
-        return self.action("GET", "/scans", params={"folder_id": folder_id})["scans"]
-
-    def get_scan_name(self, scan_id):
-        logger.debug(f"GET /scans/{scan_id}")
-        return self.action("GET", f"/scans/{scan_id}")["info"]["name"]
-
-    def get_scan_details(self, scan_id):
-        logger.debug(f"GET /scans/{scan_id}")
-        return self.action("GET", f"/scans/{scan_id}")
-
-    def get_plugin_details(self, scan_id, plugin_id):
-        logger.debug(f"GET /scans/{scan_id}/plugins/{plugin_id}")
-        return self.action("GET", f"/scans/{scan_id}/plugins/{plugin_id}")
-
-    # Editor
-
-    def get_scan_templates(self):
-        logger.debug("GET /editor/scan/templates")
-        return self.action("GET", "/editor/scans/templates")["templates"]
-
-    # Non-standard auxiliary methods
+    def get_scan_folder(self, scan_id):
+        logger.debug(f"Getting folder for scan {scan_id}")
+        return self.get_scan_details(scan_id)["info"]["folder_id"]
 
     def get_folder_name(self, folder_id):
         logger.debug(f"Getting folder name for id {folder_id}")
         for folder in self.get_folders():
             if folder["id"] == folder_id:
                 return folder["name"]
-        # TODO error handling if the folder does not exist
         return None
 
     def get_folder_id(self, folder_name):
@@ -178,12 +156,67 @@ class Nessus:
         for folder in self.get_folders():
             if folder["name"] == folder_name:
                 return folder["id"]
-        # TODO error handling if the folder does not exist
         return None
 
-    def get_scan_folder(self, scan_id):
-        logger.debug(f"Getting folder for scan {scan_id}")
-        return self.get_scan_details(scan_id)["info"]["folder_id"]
+    def create_folder(self, folder_name):
+        logger.info(f'Creating folder "{folder_name}"')
+        return self.action("POST", "/folders", data={"name": folder_name})["id"]
+
+    # Scans
+
+    def get_scans(self):
+        return self.action("GET", "/scans")["scans"]
+
+    def get_folder_scans(self, folder_id):
+        return self.action("GET", "/scans", params={"folder_id": folder_id})["scans"]
+
+    def get_scan_name(self, scan_id):
+        return self.action("GET", f"/scans/{scan_id}")["info"]["name"]
+
+    def get_scan_details(self, scan_id):
+        return self.action("GET", f"/scans/{scan_id}")
+
+    def get_plugin_details(self, scan_id, plugin_id):
+        return self.action("GET", f"/scans/{scan_id}/plugins/{plugin_id}")
+
+    @locked
+    def create_scan(self, template_uuid, name, targets, description=None, folder_id=None):
+        logger.info(f'Creating scan "{name}" in folder ID {folder_id}')
+        data = {
+            "uuid": template_uuid,
+            "settings": {
+                "name": name,
+                "text_targets": targets,
+                "description": description,
+                "folder_id": folder_id,
+            },
+        }
+        return self.action("POST", f"/scans", data=data)
+
+    # Templates
+
+    def get_scan_templates(self):
+        return self.action("GET", "/editor/scan/templates")["templates"]
+
+    def get_policy_templates(self):
+        return self.action("GET", "/editor/policy/templates")["templates"]
+
+    # Policies
+
+    def get_policies(self):
+        return self.action("GET", "/policies")["policies"]
+
+    def get_policy_details(self, policy_id):
+        return self.action("GET", f"/policies/{policy_id}")
+
+    def get_policy_uuid(self, policy_id):
+        logger.debug(f"Getting UUID for policy {policy_id}")
+        return self.get_policy_details(policy_id)["uuid"]
+
+    def get_policy_id(self, policy_name):
+        logger.debug(f"Getting policy ID for name {policy_name}")
+        matches = filter(lambda p: p["name"] == policy_name, self.get_policies())
+        return next(matches, None)["id"]
 
     # Common tasks
 

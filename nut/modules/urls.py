@@ -1,5 +1,3 @@
-import sys
-
 from nut.config import settings
 from nut.modules.logger import NUTAdapter
 from nut.modules.nessus import nessus
@@ -8,9 +6,9 @@ logger = NUTAdapter()
 
 
 def urls(scan_ids):
-    outfile = settings.args.out or "webservers.txt"
+    outfile = settings.args.outfile or "webservers.txt"
 
-    logger.info("Generating url list")
+    logger.info("Generating list of web servers")
     url_list = set()
 
     def _add(_proto, _host, _port):
@@ -32,7 +30,7 @@ def urls(scan_ids):
         # If the scan hasn't been run, has failed, or if the plugin simply doesn't exist
         # we need to skip it
         if not service_detection or not service_detection["outputs"]:
-            logger.error(f"Scan with ID {scan_id} doesn't have service detection, did it run and finish?")
+            logger.error(f"Scan ID {scan_id} doesn't have service detection - did it run and finish?")
             continue
 
         for output in service_detection["outputs"]:
@@ -44,7 +42,6 @@ def urls(scan_ids):
             success = True
 
             proto = "https" if "through" in p_out else "http"
-
             for svc, hosts in output["ports"].items():
                 port = int(svc.split(" / ", 1)[0])
                 for host in hosts:
@@ -52,8 +49,8 @@ def urls(scan_ids):
 
     # If there wasn't a single valid scan we inform the user and abort
     if not success:
-        logger.error("Not a single scan has found a web server :(")
-        sys.exit(1)
+        logger.error("None of the scans found a web server")
+        return
 
     with open(outfile, "w") as fp:
         logger.info(f'Writing file "{outfile}"')
