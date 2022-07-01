@@ -79,6 +79,8 @@ nut create -l  # lists available policies
 
 Scan definitions consist of a name, a policy, and targets. Optionally, folder and description can be defined. It's also possible to define exclusions, which are automatically omitted when generating the target list.
 
+For example, the target 10.0.0.0/24 with the exclusion 10.0.0.100 will yield 10.0.0.1-10.0.0.99, 10.0.0.101-10.0.0.254.
+
 #### Single Scan
 
 Let's say we want to create a scan named "Example Scan" that uses the "All Ports" scan policy in the "Example Folder" folder. The target of this scan is the entire 10.0.0.0/24 network, but we want to exclude 10.0.0.100 because it's a fragile printer. 
