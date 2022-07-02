@@ -24,6 +24,7 @@ def list_policies():
     print(f"  {'-'*id_len}-+-{'-'*nm_len}")
     for p in policies:
         print(f"  {p['id']:{id_len}} | {p['name']}")
+    print()
 
 
 def resolve_policy(policy):
