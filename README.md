@@ -71,8 +71,8 @@ nut urls -s <SCAN> -f <FOLDER>
 This module allows to create scans automatically. It takes a JSON/YAML file that contains one or more scan definitions, which it processes and creates.
 
 ```
+nut create --list-policies
 nut create -i <INFILE>
-nut create -l  # lists available policies
 ```
 
 ### Definitions
