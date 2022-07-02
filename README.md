@@ -25,7 +25,7 @@ pipx upgrade nut
 
 ## Configuration
 
-To use nut, both the Nessus URL and the corresponding API tokens must be filled in the configuration file which is located under `~/.config/nut.conf`. Upon first run, the example config file will be copied to this location.
+To use nut, both the Nessus URL and API tokens must be set in the configuration file which is located under `~/.config/nut.conf`. Upon first run, the example config file will be copied to this location.
 
 The Nessus URL must not contain a path, so for example `https://nessus.local:8834`.
 
