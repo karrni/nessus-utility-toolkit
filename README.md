@@ -1,9 +1,7 @@
 <h1 align="center">
     <br>
-    🔩 N.U.T.
+    Nessus Utility Toolkit
 </h1>
-
-<h4 align="center">Nessus Utility Toolkit</h4>
 
 <p align="center">
     The purpose of this tool is to automate and simplify common and time-consuming tasks involving Nessus.
