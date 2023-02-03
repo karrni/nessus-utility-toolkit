@@ -83,11 +83,9 @@ def resolve_scope(targets, exclusions, as_text=True):
         no_exclusions = True
 
         for host in net.hosts():
-
             # As explained above, when we hit an exclusion it means we can add the
             # range from current "first" to the previous element to our list
             if host in _exclusions:
-
                 # If we have a first and last element for the current range we add
                 # it to the list.
                 if first and prev:

@@ -27,14 +27,17 @@ def list_policies():
     print()
 
 
-def resolve_policy(policy):
+def resolve_policy_id(policy):
     # int means it's the policy ID
     if isinstance(policy, int):
+        logger.debug("Policy ID was provided")
         policy_id = policy
 
     # if it's a string, it's the policy name and needs to be resolved
     elif isinstance(policy, str):
+        logger.debug("Policy name was provided")
         policy_id = nessus.get_policy_id(policy)
+        logger.debug(f"Resolved policy ID is {policy_id}")
         if not policy_id:
             logger.error(f'Invalid policy name "{policy}"')
             return
@@ -44,7 +47,12 @@ def resolve_policy(policy):
         logger.error("The policy is invalid")
         return
 
+    return policy_id
+
+
+def resolve_template_uuid(policy_id):
     template_uuid = nessus.get_policy_uuid(policy_id)
+    logger.debug(f"Template UUID is {template_uuid}")
     if not template_uuid:
         logger.error(f"Could not resolve template UUID for policy ID {policy_id}")
         return
@@ -108,7 +116,12 @@ def create():
             logger.error(f'Scan "{name}" is missing the policy - skipping')
             continue
 
-        template_uuid = resolve_policy(policy)
+        policy_id = resolve_policy_id(policy)
+        if not policy_id:
+            logger.error(f'Scan "{name}" has an invalid policy - skipping')
+            continue
+
+        template_uuid = resolve_template_uuid(policy_id)
         if not template_uuid:
             return
 
@@ -152,5 +165,6 @@ def create():
             name,
             text_targets,
             description,
+            policy_id,
             folder_id,
         )

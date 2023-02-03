@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "nut"
-version = "1.0.1"
-description = ""
+version = "1.0.2"
+description = "Toolkit to automate and simplify common tasks involving Nessus"
 authors = ["karrni <24398546+karrni@users.noreply.github.com>"]
 
 [tool.poetry.scripts]
@@ -13,8 +13,10 @@ requests = "^2.27.1"
 XlsxWriter = "^3.0.3"
 PyYAML = "^6.0"
 
-[tool.poetry.dev-dependencies]
-pytest = "^5.2"
+[tool.poetry.group.dev.dependencies]
+flake8 = "^6.0.0"
+black = "^23.1.0"
+isort = "^5.12.0"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

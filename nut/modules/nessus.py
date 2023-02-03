@@ -180,7 +180,7 @@ class Nessus:
         return self.action("GET", f"/scans/{scan_id}/plugins/{plugin_id}")
 
     @locked
-    def create_scan(self, template_uuid, name, targets, description=None, folder_id=None):
+    def create_scan(self, template_uuid, name, targets, description=None, policy_id=None, folder_id=None):
         logger.info(f'Creating scan "{name}" in folder ID {folder_id}')
         data = {
             "uuid": template_uuid,
@@ -188,6 +188,7 @@ class Nessus:
                 "name": name,
                 "text_targets": targets,
                 "description": description,
+                "policy_id": policy_id,
                 "folder_id": folder_id,
             },
         }

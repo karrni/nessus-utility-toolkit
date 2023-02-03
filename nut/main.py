@@ -24,11 +24,11 @@ def main():
 
     # the main argument parser
     main_parser = argparse.ArgumentParser(
-        description=f"""
+        description="""
       _____
-     / _ \\ \\        N.U.T.                                    
+     / _ \\ \\        N.U.T.
     ( (_) )-)  Nessus Utility Toolkit
-     \\___/_/  
+     \\___/_/
     """,
         formatter_class=argparse.RawTextHelpFormatter,
     )
