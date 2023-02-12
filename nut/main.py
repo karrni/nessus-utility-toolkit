@@ -58,6 +58,8 @@ def main():
     # initialize nessus
     nessus.init(
         os.environ.get("NESSUS_URL", settings.config["nessus"]["url"]),
+        os.environ.get("NESSUS_USERNAME", settings.config["nessus"]["username"]),
+        os.environ.get("NESSUS_PASSWORD", settings.config["nessus"]["password"]),
         os.environ.get("NESSUS_ACCESS_KEY", settings.config["nessus"]["access_key"]),
         os.environ.get("NESSUS_SECRET_KEY", settings.config["nessus"]["secret_key"]),
     )

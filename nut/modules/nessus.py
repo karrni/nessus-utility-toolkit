@@ -37,14 +37,23 @@ def locked(func):
 class Nessus:
     def __init__(self):
         self.url = None
-        self.headers = None
-        self.initialized = False
+        self.headers = {}
         self.unlocked = False
 
-    def init(self, url, access_key, secret_key):
+    def init(self, url, username, password, access_key, secret_key):
         self.url = url
-        self.headers = {"X-ApiKeys": f"accessKey={access_key}; secretKey={secret_key};"}
-        self.initialized = True
+
+        if username and password:
+            logger.info("Authenticating with username and password")
+            response = self.action("POST", "/session", data={"username": username, "password": password})
+            self.headers = {"X-Cookie": f"token={response['token']}"}
+
+        elif access_key and secret_key:
+            self.headers = {"X-ApiKeys": f"accessKey={access_key}; secretKey={secret_key};"}
+
+        else:
+            logger.error("You need to set API tokens, or username and password for Nessus. (~/.config/nut.conf)")
+            sys.exit(1)
 
     def unlock(self):
         # Nessus has restricted API endpoints that are "only usable in Nessus Manager".
@@ -67,9 +76,6 @@ class Nessus:
         json_req=True,
         download=False,
     ):
-        if not self.initialized:
-            raise NessusError("Not yet initialized")
-
         logger.debug(f"{method} {path}")
         if params:
             logger.debug(f"  params: {params}")

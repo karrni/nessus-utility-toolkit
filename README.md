@@ -23,7 +23,7 @@ pipx upgrade nut
 
 ## Configuration
 
-To use nut, both the Nessus URL and API tokens must be set in the configuration file which is located under `~/.config/nut.conf`. Upon first run, the example config file will be copied to this location.
+To use nut, set the Nessus URL and either user credentials or API tokens in the configuration file which is located under `~/.config/nut.conf`. Upon first run, the example config file will be copied to this location.
 
 The Nessus URL must not contain a path, so for example `https://nessus.local:8834`.
 
@@ -81,7 +81,7 @@ For example, the target 10.0.0.0/24 with the exclusion 10.0.0.100 will yield 10.
 
 #### Single Scan
 
-Let's say we want to create a scan named "Example Scan" that uses the "All Ports" scan policy in the "Example Folder" folder. The target of this scan is the entire 10.0.0.0/24 network, but we want to exclude 10.0.0.100 because it's a fragile printer. 
+Let's say we want to create a scan named "Example Scan" that uses the "All Ports" scan policy in the "Example Folder" folder. The target of this scan is the entire 10.0.0.0/24 network, but we want to exclude 10.0.0.100 because it's a fragile printer.
 
 ```yaml
 scans:
@@ -111,18 +111,16 @@ scans:
       - 10.0.1.0/24
     exclusions:
       - 10.0.0.100
-      
+
   Branch Office:
     targets:
       - 10.2.0.0/24
     exclusions:
       - 10.2.0.100
       - 10.2.0.102
-      
+
   Production:
     policy: Custom Fragile Policy
     targets:
       - 10.1.2.0/24
 ```
-
-

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nut"
-version = "1.0.2"
+version = "1.1.0"
 description = "Toolkit to automate and simplify common tasks involving Nessus"
 authors = ["karrni <24398546+karrni@users.noreply.github.com>"]
 
