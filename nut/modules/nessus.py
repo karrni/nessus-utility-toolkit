@@ -198,7 +198,7 @@ class Nessus:
                 "folder_id": folder_id,
             },
         }
-        return self.action("POST", f"/scans", data=data)
+        return self.action("POST", "/scans", data=data)
 
     # Templates
 
