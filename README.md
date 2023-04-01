@@ -11,9 +11,22 @@
 
 # Installation
 
+You can install it from source using Poetry:
+
+```
+git clone https://github.com/karrni/nessus-utility-toolkit
+cd nessus-utility-toolkit
+poetry install
+poetry run nut
+```
+
+Alternatively, you can install using pip (or even better, [pipx](https://github.com/pypa/pipx)):
+
 ```
 pip install git+https://github.com/karrni/nessus-utility-toolkit
 ```
+
+After that, the `nut` command should be available from your command line.
 
 ## Configuration
 
