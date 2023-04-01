@@ -1,26 +1,32 @@
 import logging
 import sys
 
+from colorama import Fore
 
-class NUTAdapter(logging.LoggerAdapter):
+
+class Logger(logging.LoggerAdapter):
     def __init__(self, logger_name="NUT", extra=None):
         self.logger = logging.getLogger(logger_name)
         self.extra = extra
 
     def error(self, msg, *args, **kwargs):
-        msg, kwargs = self.process(f"[!] {msg}", kwargs)
+        msg, kwargs = self.process(f"{Fore.RED}[!]{Fore.RESET} {msg}", kwargs)
         self.logger.error(msg, *args, **kwargs)
 
+    def warning(self, msg, *args, **kwargs):
+        msg, kwargs = self.process(f"{Fore.YELLOW}[?]{Fore.RESET} {msg}", kwargs)
+        self.logger.warning(msg, *args, **kwargs)
+
     def info(self, msg, *args, **kwargs):
-        msg, kwargs = self.process(f"[*] {msg}", kwargs)
+        msg, kwargs = self.process(f"{Fore.BLUE}[i]{Fore.RESET} {msg}", kwargs)
         self.logger.info(msg, *args, **kwargs)
 
     def success(self, msg, *args, **kwargs):
-        msg, kwargs = self.process(f"[+] {msg}", kwargs)
+        msg, kwargs = self.process(f"{Fore.GREEN}[+]{Fore.RESET} {msg}", kwargs)
         self.logger.info(msg, *args, **kwargs)
 
     def debug(self, msg, *args, **kwargs):
-        msg, kwargs = self.process(f"[d] {msg}", kwargs)
+        msg, kwargs = self.process(f"{Fore.CYAN}[d]{Fore.RESET} {msg}", kwargs)
         self.logger.debug(msg, *args, **kwargs)
 
 

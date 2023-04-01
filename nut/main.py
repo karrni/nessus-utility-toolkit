@@ -5,7 +5,7 @@ import os
 from nut.config import settings
 from nut.modules.create import create
 from nut.modules.export import export
-from nut.modules.logger import NUTAdapter, setup_logger
+from nut.modules.logger import Logger, setup_logger
 from nut.modules.nessus import nessus
 from nut.modules.urls import urls
 from nut.modules.utils import get_scan_ids
@@ -51,7 +51,7 @@ def main():
     args = main_parser.parse_args(namespace=settings.args)
 
     setup_logger(logging.DEBUG if settings.args.debug else logging.INFO)
-    logger = NUTAdapter()
+    logger = Logger()
 
     logger.debug(f"args: {args}")
 

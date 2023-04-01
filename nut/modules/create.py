@@ -4,11 +4,11 @@ from pathlib import Path
 import yaml
 
 from nut.config import settings
-from nut.modules.logger import NUTAdapter
+from nut.modules.logger import Logger
 from nut.modules.nessus import nessus
 from nut.modules.utils import resolve_scope
 
-logger = NUTAdapter()
+logger = Logger()
 
 
 def list_policies():

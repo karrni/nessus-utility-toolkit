@@ -11,7 +11,7 @@ config_dir = Path.home() / ".config"
 config_file = config_dir / "nut.conf"
 
 
-class NutSettings:
+class Settings:
     """This stores settings from the config file as well as command-line arguments."""
 
     def __init__(self):
@@ -29,4 +29,4 @@ if not config_file.exists():
     shutil.copy(location / "nut.conf.example", config_file)
 
 # instance that stores the settings
-settings = NutSettings()
+settings = Settings()

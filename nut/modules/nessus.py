@@ -7,11 +7,11 @@ import requests
 import urllib3
 from urllib3.exceptions import InsecureRequestWarning
 
-from nut.modules.logger import NUTAdapter
+from nut.modules.logger import Logger
 
 urllib3.disable_warnings(InsecureRequestWarning)
 
-logger = NUTAdapter()
+logger = Logger()
 
 
 class NessusError(Exception):

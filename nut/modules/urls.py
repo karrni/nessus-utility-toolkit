@@ -1,8 +1,8 @@
 from nut.config import settings
-from nut.modules.logger import NUTAdapter
+from nut.modules.logger import Logger
 from nut.modules.nessus import nessus
 
-logger = NUTAdapter()
+logger = Logger()
 
 
 def urls(scan_ids):

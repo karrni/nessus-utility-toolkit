@@ -3,11 +3,11 @@ from datetime import datetime
 from pathlib import Path
 
 from nut.config import settings
-from nut.modules.logger import NUTAdapter
+from nut.modules.logger import Logger
 from nut.modules.nessus import nessus
 from nut.modules.utils import mkdir, secure_filename
 
-logger = NUTAdapter()
+logger = Logger()
 
 
 class ScanExportXml:

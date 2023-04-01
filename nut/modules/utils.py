@@ -1,10 +1,10 @@
 import ipaddress
 from pathlib import Path
 
-from nut.modules.logger import NUTAdapter
+from nut.modules.logger import Logger
 from nut.modules.nessus import nessus
 
-logger = NUTAdapter()
+logger = Logger()
 
 
 def get_scan_ids(scans, folders):
