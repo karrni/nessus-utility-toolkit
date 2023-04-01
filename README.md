@@ -12,13 +12,7 @@
 # Installation
 
 ```
-pipx install git+https://github.com/karrni/nessus-utility-toolkit
-```
-
-To upgrade, simply run
-
-```
-pipx upgrade nut
+pip install git+https://github.com/karrni/nessus-utility-toolkit
 ```
 
 ## Configuration
