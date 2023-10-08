@@ -53,6 +53,18 @@ def main():
         help="List available policies",
     )
 
+    # parser for the 'export' module
+    export_parser = subparsers.add_parser(
+        "export",
+        parents=[common_parser, scans_parser],
+        help="Export scans as .nessus files.",
+        description="Export scans as .nessus files.",
+    )
+    export_parser.add_argument("--merge", action="store_true", default=False, help="Merge the scans into one")
+    export_parser.add_argument("-o", metavar="FILE", dest="outfile", default=None, help="Output file")
+
+    # ==============================
+
     args = parser.parse_args(namespace=settings.args)
 
     # set up logging
