@@ -1,96 +1,146 @@
 import argparse
 import logging
+from pathlib import Path
+
+from colorama import Fore, Style
 
 from nut.config import settings
-from nut.logger import setup_logging
-from nut.modules.list import ListModule
-from nut.utils import collect_scan_ids, setup_nessus
+from nut.utils import resolve_scan_ids, setup_nessus
+
+logger = logging.getLogger(__name__)
 
 
-def main():
-    parser_description = """
-      _____
-     / _ \\ \\        N.U.T.
-    ( (_) )-)  Nessus Utility Toolkit
-     \\___/_/
-    """
+class CustomFormatter(logging.Formatter):
+    """Custom formatter that colors the level name."""
 
-    common_parser = argparse.ArgumentParser(add_help=False)
-    common_parser.add_argument("--debug", action="store_true", default=False, help="Enable debug output")
+    # Define the colors for each log level
+    level_color = {
+        logging.DEBUG: Fore.MAGENTA,
+        logging.INFO: Fore.BLUE,
+        logging.WARNING: Fore.YELLOW,
+        logging.ERROR: Fore.RED,
+        logging.CRITICAL: Fore.RED + Style.BRIGHT,
+    }
 
-    scans_parser = argparse.ArgumentParser(add_help=False)
-    scans_parser.add_argument("-s", "--scans", nargs="*", type=int, default=[])
-    scans_parser.add_argument("-f", "--folders", nargs="*", default=[])
-    scans_parser.set_defaults(scans_required=True)  # used to determine if the module needs scan ids
+    def format(self, record):
+        # Get the color for the log level
+        color = self.level_color[record.levelno]
 
-    # the main argument parser
-    parser = argparse.ArgumentParser(
-        description=parser_description,
-        formatter_class=argparse.RawTextHelpFormatter,
-        parents=[common_parser],
-    )
+        # Overwrite 'levelname' with a colored version
+        record.levelname = f"{color}{record.levelname}{Style.RESET_ALL}"
+
+        return super().format(record)
+
+
+def setup_logging(level: int):
+    """Configure the logging."""
+
+    # Custom formatter and message format
+    formatter = CustomFormatter("[%(levelname)s] %(message)s")
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+
+    logging.root.addHandler(handler)
+    logging.root.setLevel(level)
+
+    # Overwrite the default log level names
+    logging.addLevelName(logging.DEBUG, "DBG")
+    logging.addLevelName(logging.INFO, "INF")
+    logging.addLevelName(logging.WARNING, "WRN")
+    logging.addLevelName(logging.ERROR, "ERR")
+    logging.addLevelName(logging.CRITICAL, "CRT")
+
+    # Explicitly set the log level for noisy packages
+    logging.getLogger("urllib3.connectionpool").setLevel(logging.INFO)
+
+
+def parse_args():
+    # --- Common Arguments ---
+
+    # common arguments that all parsers share
+    _common = argparse.ArgumentParser(add_help=False)
+    _common.add_argument("-v", dest="loglevel", action="store_const", const=logging.DEBUG, default=logging.INFO)
+    _common.set_defaults(uses_scans=False)
+
+    # arguments for modules that work with scans
+    _scans = argparse.ArgumentParser(add_help=False)
+    _text = "Scan ID or name"
+    _scans.add_argument("-s", "--scans", metavar="SCAN", nargs="*", default=[], type=str, help=_text)
+    _text = "Folder ID or name"
+    _scans.add_argument("-f", "--folders", metavar="FOLDER", nargs="*", default=[], type=str, help=_text)
+    _scans.set_defaults(uses_scans=True)  # indicates that the module uses scans
+
+    # --- Main Parser ---
+
+    # nut -h -> module.help, nut module -h -> module.description
+    parser = argparse.ArgumentParser(prog="nut", parents=[_common])
     subparsers = parser.add_subparsers(dest="module", required=True)
 
-    # parser for the 'list' module
-    list_parser = subparsers.add_parser(
-        "list",
-        parents=[common_parser],
-        help="List available folders, scans, and policies.",
-        description="List available folders, scans, and policies.",
-    )
+    # --- Create ---
+    _text = "Create scans and folders defined in a .yml file"
+    parser_create = subparsers.add_parser("create", parents=[_common], help=_text, description=_text)
+    parser_create.add_argument("file", help="Yaml file with the scan definitions")
 
-    list_parser.add_argument(
-        "--scans",
-        action="store_true",
-        default=False,
-        help="Include scans when listing folders",
-    )
+    # --- List ---
+    _text = "List folders, scans, and scan policies"
+    parser_list = subparsers.add_parser("list", parents=[_common], help=_text, description=_text)
+    list_group = parser_list.add_mutually_exclusive_group()
+    list_group.add_argument("-s", "--scans", action="store_true", help="Include scans in each folder")
+    list_group.add_argument("-p", "--policies", action="store_true", help="List available scan policies")
 
-    list_parser.add_argument(
-        "--policies",
-        action="store_true",
-        default=False,
-        help="List available policies",
-    )
+    # --- Export ---
+    _text = "Export scans as .nessus files"
+    parser_export = subparsers.add_parser("export", parents=[_common, _scans], help=_text, description=_text)
+    parser_export.add_argument("-m", "--merge", action="store_true", help="Merge all scans into one")
+    parser_export.add_argument("-o", "--outdir", type=Path, default=Path())
 
-    # parser for the 'export' module
-    export_parser = subparsers.add_parser(
-        "export",
-        parents=[common_parser, scans_parser],
-        help="Export scans as .nessus files.",
-        description="Export scans as .nessus files.",
-    )
-    export_parser.add_argument("--merge", action="store_true", default=False, help="Merge the scans into one")
-    export_parser.add_argument("-o", metavar="FILE", dest="outfile", default=None, help="Output file")
+    # --- Exploits ---
+    _text = "List vulnerabilities with known exploits"
+    parser_exploits = subparsers.add_parser("exploits", parents=[_common, _scans], help=_text, description=_text)
 
-    # ==============================
+    # --- URLs ---
+    _text = "Create a list of all identified web servers"
+    parser_urls = subparsers.add_parser("urls", parents=[_common, _scans], help=_text, description=_text)
+    _default = Path("webservers.txt")
+    parser_urls.add_argument("-o", "--output", metavar="FILE", dest="outfile", type=Path, default=_default)
 
     args = parser.parse_args(namespace=settings.args)
 
-    # set up logging
-    setup_logging(logging.DEBUG if args.debug else logging.INFO)
-    logger = logging.getLogger(__name__)
+    # Ensure that either scans or folders was passed if the module uses scans
+    if args.uses_scans and not (args.scans or args.folders):
+        parser.error("at least one of the following arguments is required: scans, folders")
 
-    logger.debug(f"Arguments: {args=}")
+    return args
 
-    # initialize the nessus instance
+
+def main():
+    args = parse_args()
+
+    # The log level is determined by the '-v' flag, so we log after
+    setup_logging(args.loglevel)
+    logger.debug(f"{args=}")
+
+    # Initialize the NessusAPI object
     setup_nessus()
 
-    # check if the chosen module requires scans
-    scans_required = getattr(args, "scans_required", False)
-
-    if scans_required:
-        if not args.scans and not args.folders:
-            logger.error("You need to specify scans and/or folders")
+    # Resolve the scan IDs if the chosen module uses them
+    if args.uses_scans:
+        logger.debug("Resolving scan IDs")
+        settings.scan_ids = resolve_scan_ids(args.scans, args.folders)
+        if not settings.scan_ids:
+            logger.error("No valid scan ID found, please check your input")
             return
 
-        settings.args.scan_ids = collect_scan_ids(args.scans, args.folders)
-        if not settings.args.scan_ids:
-            logger.error("No valid scan IDs, check the arguments")
-            return
+    # --- Modules ---
+    from nut.modules import export, list, urls
 
     if args.module == "list":
-        ListModule().handle()
+        list.run()
+    elif args.module == "urls":
+        urls.run()
+    elif args.module == "export":
+        export.run()
 
 
 if __name__ == "__main__":

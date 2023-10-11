@@ -13,6 +13,7 @@ colorama = "^0.4.6"
 urllib3 = "^2.0.6"
 prettytable = "^3.9.0"
 nessus-py = "^1.0.1"
+pathvalidate = "^3.2.0"
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.1.0"

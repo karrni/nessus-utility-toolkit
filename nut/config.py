@@ -22,6 +22,9 @@ class Settings:
         self.config = configparser.ConfigParser()
         self.config.read(CONFIG_FILE)
 
+        # Stores the resolved scan IDs
+        self.scan_ids = None
+
 
 # Instance that stores the settings
 settings = Settings()

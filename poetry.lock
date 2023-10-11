@@ -261,13 +261,13 @@ files = [
 
 [[package]]
 name = "nessus-py"
-version = "1.0.1"
+version = "1.0.2"
 description = "Nessus API for Python"
 optional = false
 python-versions = ">=3.9,<4.0"
 files = [
-    {file = "nessus_py-1.0.1-py3-none-any.whl", hash = "sha256:abb6291a1b79956b90cff45078f1996fea788d2dff7d372be087555af39bafa3"},
-    {file = "nessus_py-1.0.1.tar.gz", hash = "sha256:0418b0e6c7520f81d900db707ce1de778adc91c7a0aad0c060d9637af6d51eff"},
+    {file = "nessus_py-1.0.2-py3-none-any.whl", hash = "sha256:0ee068bb159bb79e4f4156a24bf510ecc2290c21ff7d19583211eb2986655857"},
+    {file = "nessus_py-1.0.2.tar.gz", hash = "sha256:5d4a357dc473a4536b943d65ebe84f6eaf03db025a3d30241750622c9cdfabce"},
 ]
 
 [package.dependencies]
@@ -296,6 +296,21 @@ files = [
     {file = "pathspec-0.11.2-py3-none-any.whl", hash = "sha256:1d6ed233af05e679efb96b1851550ea95bbb64b7c490b0f5aa52996c11e92a20"},
     {file = "pathspec-0.11.2.tar.gz", hash = "sha256:e0d8d0ac2f12da61956eb2306b69f9469b42f4deb0f3cb6ed47b9cce9996ced3"},
 ]
+
+[[package]]
+name = "pathvalidate"
+version = "3.2.0"
+description = "pathvalidate is a Python library to sanitize/validate a string such as filenames/file-paths/etc."
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "pathvalidate-3.2.0-py3-none-any.whl", hash = "sha256:cc593caa6299b22b37f228148257997e2fa850eea2daf7e4cc9205cef6908dee"},
+    {file = "pathvalidate-3.2.0.tar.gz", hash = "sha256:5e8378cf6712bff67fbe7a8307d99fa8c1a0cb28aa477056f8fc374f0dff24ad"},
+]
+
+[package.extras]
+docs = ["Sphinx (>=2.4)", "sphinx-rtd-theme (>=1.2.2)", "urllib3 (<2)"]
+test = ["Faker (>=1.0.8)", "allpairspy (>=2)", "click (>=6.2)", "pytest (>=6.0.1)", "pytest-discord (>=0.1.4)", "pytest-md-report (>=0.4.1)"]
 
 [[package]]
 name = "platformdirs"
@@ -429,4 +444,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "068ff87f5ea573239cc729f4b3c7f9b60a328e95c7cbb3ab40485b8a13efe65f"
+content-hash = "b852df47a0ac013da90d988567e425a3bbe1e95c39638bd8b73c4f544a00e477"
