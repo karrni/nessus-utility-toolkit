@@ -1,29 +1,36 @@
 import logging
 from collections import defaultdict
 from textwrap import shorten
+from typing import Union
 
 from nessus import NessusAPI
+from netaddr import (
+    AddrFormatError,
+    IPAddress,
+    IPGlob,
+    IPNetwork,
+    IPSet,
+    iter_nmap_range,
+    valid_glob,
+    valid_ipv4,
+    valid_nmap_range,
+)
 from urllib3 import disable_warnings
 from urllib3.exceptions import InsecureRequestWarning
 
-from nut.config import settings
+from nut.config import config
 
 disable_warnings(InsecureRequestWarning)
 logger = logging.getLogger(__name__)
 
-nessus = NessusAPI(settings.config["nessus"]["url"])
 
-
-def setup_nessus():
-    logger.info("Connecting to Nessus")
-
-    conf = settings.config["nessus"]
-
-    if conf["username"] and conf["password"]:
-        nessus.add_credentials(conf["username"], conf["password"])
-
-    elif conf["access_key"] and conf["secret_key"]:
-        nessus.add_keys(conf["access_key"], conf["secret_key"])
+nessus = NessusAPI(
+    config["nessus"]["url"],
+    access_key=config["nessus"]["access_key"],
+    secret_key=config["nessus"]["secret_key"],
+    username=config["nessus"]["username"],
+    password=config["nessus"]["password"],
+)
 
 
 def resolve_scan_ids(scans: list[str], folders: list[str]) -> list[int]:
@@ -113,3 +120,77 @@ def resolve_scan_ids(scans: list[str], folders: list[str]) -> list[int]:
     logger.info(f"Scan IDs: {scan_ids}")
 
     return scan_ids
+
+
+def _to_ips_and_hosts(items: list) -> tuple[IPSet, set]:
+    ips, hosts = IPSet(), set()
+
+    for item in items:
+        # NOTE: The order of the checks is important. Unfortunately, there's no
+        #   'valid_cidr()' function, so we can't use continuous if/elif/else
+        #   statements and have to use 'continue' and 'try/except'.
+
+        # Check if the item is a single IP address
+        if valid_ipv4(item):
+            ips.add(IPAddress(item))
+
+            # Every address is also a valid CIDR network, so explicitly skip
+            continue
+
+        # Check if the item is a network in CIDR notation
+        # IMPORTANT: This check **needs** to come before the nmap and glob
+        #   checks, because they do not recognize the network and broadcast
+        #   addresses!
+        try:
+            network = IPNetwork(item)
+
+            for ip in network.iter_hosts():
+                ips.add(ip)
+
+            # Every network is also a valid nmap/glob range, so explicitly skip
+            continue
+
+        except AddrFormatError:
+            pass
+
+        # Check if the item is a valid nmap range
+        if valid_nmap_range(item):
+            for ip in iter_nmap_range(item):
+                ips.add(ip)
+
+        # Check if the item is a valid glob notation
+        elif valid_glob(item):
+            for ip in IPGlob(item):
+                ips.add(ip)
+
+        # All other items are presumably hostnames
+        else:
+            hosts.add(item)
+
+    return ips, hosts
+
+
+def resolve_scope(targets: list, exclusions: Union[list, None] = None) -> list[str]:
+    scope_ips, scope_hosts = _to_ips_and_hosts(targets)
+
+    if exclusions is not None:
+        exclude_ips, exclude_hosts = _to_ips_and_hosts(exclusions)
+
+        scope_ips -= exclude_ips
+        scope_hosts -= exclude_hosts
+
+    scope = []
+
+    for iprange in scope_ips.iter_ipranges():
+        # To avoid ranges like 192.168.0.1-192.168.0.1, check the length of the
+        # range and if it's 1, only add the first (and only) item
+        if len(iprange) == 1:
+            scope.append(str(iprange[0]))
+
+        else:
+            scope.append(str(iprange))
+
+    # Sort the list of hosts and add them to the scope
+    scope.extend(sorted(scope_hosts))
+
+    return scope

@@ -3,7 +3,7 @@ from textwrap import shorten
 
 from prettytable import PrettyTable
 
-from nut.config import settings
+from nut.config import args
 from nut.utils import nessus
 
 logger = logging.getLogger(__name__)
@@ -109,9 +109,9 @@ def get_policies_table():
 
 
 def run():
-    if settings.args.policies:
+    if args.policies:
         table = get_policies_table()
-    elif settings.args.scans:
+    elif args.scans:
         table = get_scans_table()
     else:
         table = get_folders_table()

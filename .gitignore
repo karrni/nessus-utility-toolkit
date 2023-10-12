@@ -1,7 +1,6 @@
-# Output files
-*-domains.txt
-*-companies.txt
-*-emails.txt
+**.yml
+**.json
+**.txt
 
 # Local cache
 .ruff_cache

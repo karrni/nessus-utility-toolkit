@@ -1,11 +1,12 @@
 import argparse
 import logging
+from argparse import ArgumentTypeError
 from pathlib import Path
 
 from colorama import Fore, Style
 
 from nut.config import settings
-from nut.utils import resolve_scan_ids, setup_nessus
+from nut.utils import resolve_scan_ids
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,13 @@ def setup_logging(level: int):
     logging.getLogger("urllib3.connectionpool").setLevel(logging.INFO)
 
 
+def path_file(string):
+    path = Path(string)
+    if not path.exists():
+        raise ArgumentTypeError(f"{string} doesn't exist")
+    return path
+
+
 def parse_args():
     # --- Common Arguments ---
 
@@ -80,7 +88,7 @@ def parse_args():
     # --- Create ---
     _text = "Create scans and folders defined in a .yml file"
     parser_create = subparsers.add_parser("create", parents=[_common], help=_text, description=_text)
-    parser_create.add_argument("file", help="Yaml file with the scan definitions")
+    parser_create.add_argument("file", type=path_file, help="Yaml file with the scan definitions")
 
     # --- List ---
     _text = "List folders, scans, and scan policies"
@@ -121,9 +129,6 @@ def main():
     setup_logging(args.loglevel)
     logger.debug(f"{args=}")
 
-    # Initialize the NessusAPI object
-    setup_nessus()
-
     # Resolve the scan IDs if the chosen module uses them
     if args.uses_scans:
         logger.debug("Resolving scan IDs")
@@ -133,7 +138,7 @@ def main():
             return
 
     # --- Modules ---
-    from nut.modules import export, list, urls
+    from nut.modules import create, export, list, urls
 
     if args.module == "list":
         list.run()
@@ -141,6 +146,8 @@ def main():
         urls.run()
     elif args.module == "export":
         export.run()
+    elif args.module == "create":
+        create.run()
 
 
 if __name__ == "__main__":
