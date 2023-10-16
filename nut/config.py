@@ -28,7 +28,3 @@ class Settings:
 
 # Instance that stores the settings
 settings = Settings()
-
-args = settings.args
-config = settings.config
-scan_ids = settings.scan_ids

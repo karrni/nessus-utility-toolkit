@@ -57,6 +57,8 @@ def setup_logging(level: int):
 
 
 def path_file(string):
+    """Returns the string path as a Path object after checking that it exists."""
+
     path = Path(string)
     if not path.exists():
         raise ArgumentTypeError(f"{string} doesn't exist")
@@ -73,15 +75,13 @@ def parse_args():
 
     # arguments for modules that work with scans
     _scans = argparse.ArgumentParser(add_help=False)
-    _text = "Scan ID or name"
-    _scans.add_argument("-s", "--scans", metavar="SCAN", nargs="*", default=[], type=str, help=_text)
-    _text = "Folder ID or name"
-    _scans.add_argument("-f", "--folders", metavar="FOLDER", nargs="*", default=[], type=str, help=_text)
+    _scans.add_argument("-s", "--scans", metavar="SCAN", nargs="*", default=[], type=str, help="Scan ID or name")
+    _scans.add_argument("-f", "--folders", metavar="FOLDER", nargs="*", default=[], type=str, help="Folder ID or name")
     _scans.set_defaults(uses_scans=True)  # indicates that the module uses scans
 
     # --- Main Parser ---
 
-    # nut -h -> module.help, nut module -h -> module.description
+    # nut -h -> module.help, nut [module] -h -> module.description
     parser = argparse.ArgumentParser(prog="nut", parents=[_common])
     subparsers = parser.add_subparsers(dest="module", required=True)
 
@@ -106,12 +106,14 @@ def parse_args():
     # --- Exploits ---
     _text = "List vulnerabilities with known exploits"
     parser_exploits = subparsers.add_parser("exploits", parents=[_common, _scans], help=_text, description=_text)
+    framework_group = parser_exploits.add_mutually_exclusive_group()
+    framework_group.add_argument("-ms", "--metasploit", action="store_const", dest="framework", const="metasploit")
+    framework_group.add_argument("-co", "--core-impact", action="store_const", dest="framework", const="core")
 
     # --- URLs ---
     _text = "Create a list of all identified web servers"
     parser_urls = subparsers.add_parser("urls", parents=[_common, _scans], help=_text, description=_text)
-    _default = Path("webservers.txt")
-    parser_urls.add_argument("-o", "--output", metavar="FILE", dest="outfile", type=Path, default=_default)
+    parser_urls.add_argument("-o", "--output", metavar="FILE", dest="outfile", type=Path, default=Path("urls.txt"))
 
     args = parser.parse_args(namespace=settings.args)
 
@@ -129,6 +131,8 @@ def main():
     setup_logging(args.loglevel)
     logger.debug(f"{args=}")
 
+    logger.info("Connecting to Nessus")
+
     # Resolve the scan IDs if the chosen module uses them
     if args.uses_scans:
         logger.debug("Resolving scan IDs")
@@ -138,7 +142,7 @@ def main():
             return
 
     # --- Modules ---
-    from nut.modules import create, export, list, urls
+    from nut.modules import create, exploits, export, list, urls
 
     if args.module == "list":
         list.run()
@@ -148,6 +152,8 @@ def main():
         export.run()
     elif args.module == "create":
         create.run()
+    elif args.module == "exploits":
+        exploits.run()
 
 
 if __name__ == "__main__":

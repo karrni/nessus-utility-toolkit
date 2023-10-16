@@ -6,7 +6,7 @@ import yaml
 from nessus.models import ScanCreateSettings
 from yaml.scanner import ScannerError
 
-from nut.config import args
+from nut.config import settings
 from nut.utils import nessus, resolve_scope
 
 logger = logging.getLogger(__name__)
@@ -70,7 +70,7 @@ class CreateCache:
 
 
 def run():
-    infile = args.file
+    infile = settings.args.file
 
     with infile.open("r") as fp:
         try:
@@ -160,7 +160,7 @@ def run():
             description = str(description)  # just to be sure
 
         # Create the scan
-        settings = ScanCreateSettings(
+        scan_settings = ScanCreateSettings(
             name=name,
             text_targets=text_targets,
             description=description,
@@ -169,7 +169,7 @@ def run():
         )
 
         logger.info(f"Creating scan '{name}'")
-        nessus.scans_create(template_uuid, settings)
+        nessus.scans_create(template_uuid, scan_settings)
         scans_created += 1
 
     logger.info(f"Created {scans_created} scans")

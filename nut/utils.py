@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from ipaddress import ip_address
 from textwrap import shorten
 from typing import Union
 
@@ -18,18 +19,18 @@ from netaddr import (
 from urllib3 import disable_warnings
 from urllib3.exceptions import InsecureRequestWarning
 
-from nut.config import config
+from nut.config import settings
 
 disable_warnings(InsecureRequestWarning)
 logger = logging.getLogger(__name__)
 
 
 nessus = NessusAPI(
-    config["nessus"]["url"],
-    access_key=config["nessus"]["access_key"],
-    secret_key=config["nessus"]["secret_key"],
-    username=config["nessus"]["username"],
-    password=config["nessus"]["password"],
+    settings.config["nessus"]["url"],
+    access_key=settings.config["nessus"]["access_key"],
+    secret_key=settings.config["nessus"]["secret_key"],
+    username=settings.config["nessus"]["username"],
+    password=settings.config["nessus"]["password"],
 )
 
 
@@ -194,3 +195,63 @@ def resolve_scope(targets: list, exclusions: Union[list, None] = None) -> list[s
     scope.extend(sorted(scope_hosts))
 
     return scope
+
+
+def uniqify(seq):
+    """
+    Removes duplicates from the sequence while preserving order.
+
+    References:
+        https://www.peterbe.com/plog/uniqifiers-benchmark
+    """
+
+    seen = {}
+    result = []
+    for item in seq:
+        if item in seen:
+            continue
+        seen[item] = 1
+        result.append(item)
+    return result
+
+
+def sort_hosts(hostlist, unique=True):
+    """
+    Sorts a list of hostnames and/or IP addresses.
+
+    Accepts the following formats:
+      - 10.0.0.1
+      - 10.0.0.1:22
+      - 10.0.0.1:22/tcp
+      - 10.0.0.1:53/udp
+      - example.com
+      - example.com:80
+      - example.com:80/tcp
+    """
+
+    def _sort(target):
+        # Returns a tuple (type, host, port) that is used for sorting
+
+        # Split target into host and port
+        host, _, port = target.partition(":")
+
+        if port:
+            port, _, proto = port.partition("/")
+            port = int(port)
+        else:
+            port, proto = 0, ""
+
+        # Try to parse the host portion as an IP address
+        try:
+            ip = ip_address(host)
+            return 0, int(ip), port, proto
+
+        # If it fails it is a domain/hostname
+        except ValueError:
+            return 2, host, port, proto
+
+    result = sorted(hostlist, key=_sort)
+    if unique:
+        result = uniqify(result)
+
+    return result

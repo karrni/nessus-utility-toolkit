@@ -1,6 +1,6 @@
 import logging
 
-from nut.config import args, scan_ids
+from nut.config import settings
 from nut.utils import nessus
 
 logger = logging.getLogger(__name__)
@@ -58,13 +58,13 @@ def get_urls(scan_ids: list[int]) -> set[str]:
 
 
 def run():
-    urls = get_urls(scan_ids)
+    urls = get_urls(settings.scan_ids)
 
     if not urls:
         logger.error("None of the scans detected a web server")
         return
 
-    outfile = args.outfile
+    outfile = settings.args.outfile
     logger.info(f"Writing URLs to '{outfile}'")
     with outfile.open("w") as fp:
         fp.write("\n".join(urls))
