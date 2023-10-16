@@ -11,19 +11,19 @@
 
 # Installation
 
-You can install it from source using Poetry:
+Using pip (or even better, [pipx](https://pypa.github.io/pipx/)):
+
+```
+pip install nessus-utility-toolkit
+```
+
+Alternatively, you can install it from source using Poetry:
 
 ```
 git clone https://github.com/karrni/nessus-utility-toolkit
 cd nessus-utility-toolkit
 poetry install
 poetry run nut
-```
-
-Alternatively, you can install using pip (or even better, [pipx](https://github.com/pypa/pipx)):
-
-```
-pip install git+https://github.com/karrni/nessus-utility-toolkit
 ```
 
 After that, the `nut` command should be available from your command line.
@@ -38,7 +38,7 @@ The API tokens can be generated under `/#/settings/my-account/api-keys`, which i
 
 # Usage
 
-Nut accepts **any amount and combination of scans and folders**. Scans have to be their ID, folders can be their ID or name. Folders are then resolved and scans contained within them are merged with the others. The resulting list of scan IDs is then passed to the respective module.
+Nut accepts **any amount and combination of scans and folders**. Both can be either their ID or name. Folders are then resolved and scans contained within them are merged with the others. The resulting list of scan IDs is then passed to the respective module.
 
 ## Example
 
@@ -49,6 +49,7 @@ nut <MODULE> -s <SCAN> <SCAN> ... -f <FOLDER> <FOLDER> ...
 ### Where do I find ...
 
 - **Scan ID** - can be found in the URL when viewing the scan (`/#/scans/reports/<SCAN_ID>/hosts`)
+- **Scan Name** - the exact name as it appears when viewing the folder (e.g. `"All Subnets"`)
 - **Folder ID** - in the URL when viewing the folder (`/#/scans/folders/<FOLDER_ID>`)
 - **Folder Name** - the exact name as it appears in the sidebar (e.g. `"My Scans"` or `2022-04-Client`)
 
@@ -76,8 +77,7 @@ nut urls -s <SCAN> -f <FOLDER>
 This module allows to create scans automatically. It takes a JSON/YAML file that contains one or more scan definitions, which it processes and creates.
 
 ```
-nut create --list-policies
-nut create -i <INFILE>
+nut create <FILE>
 ```
 
 ### Definitions
@@ -104,30 +104,39 @@ scans:
 
 #### Multiple Scans
 
-If we want to create multiple scans, it's likely that they will use the same policy or be create in the same folder (each key can have a default value, including targets and exclusions). To avoid unnecessary repetitions, it's possible to define default values that can be overwritten by the respective scans if necessary.
+If we want to create multiple scans, it's likely that they use the same policy or should be created in the same folder. To avoid unnecessary repetitions, it's possible to define default values for every key except `targets`:
 
 ```yaml
 defaults:
   folder: 2022-07 Customer
   policy: All Ports
+  exclusions:
+    - 10.0.0.100
 
 scans:
   Headquarters:
     targets:
       - 10.0.0.0/24
       - 10.0.1.0/24
-    exclusions:
-      - 10.0.0.100
 
   Branch Office:
     targets:
       - 10.2.0.0/24
-    exclusions:
-      - 10.2.0.100
       - 10.2.0.102
+    exclusions:
+      - 10.2.0.20
 
   Production:
     policy: Custom Fragile Policy
     targets:
       - 10.1.2.0/24
+```
+
+## Exploits
+
+This module extracts all vulnerabilities that have known exploits. Optionally, we can filter them to only includes ones with a metasploit or core impact module.
+
+```
+nut exploits -s <SCAN> -f <FOLDER>
+nut exploits -s <SCAN> -f <FOLDER> -ms
 ```

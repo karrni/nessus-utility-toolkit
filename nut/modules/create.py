@@ -1,170 +1,192 @@
 import copy
-from pathlib import Path
+import logging
+from typing import Optional, Union
 
 import yaml
+from nessus.models import ScanCreateSettings
+from yaml.scanner import ScannerError
 
-from nut.config import settings
-from nut.modules.logger import Logger
-from nut.modules.nessus import nessus
-from nut.modules.utils import resolve_scope
+from nut.settings import args
+from nut.utils import nessus, resolve_targets
 
-logger = Logger()
-
-
-def list_policies():
-    policies = nessus.get_policies()
-
-    id_len, nm_len = 0, 0
-    for p in policies:
-        id_len = max(id_len, len(str(p["id"])))
-        nm_len = max(nm_len, len(p["name"]))
-
-    print("\nScan Policies:\n")
-    print(f"  {'ID':>{id_len}} | Name")
-    print(f"  {'-'*id_len}-+-{'-'*nm_len}")
-    for p in policies:
-        print(f"  {p['id']:{id_len}} | {p['name']}")
-    print()
+logger = logging.getLogger(__name__)
 
 
-def resolve_policy_id(policy):
-    # int means it's the policy ID
-    if isinstance(policy, int):
-        logger.debug("Policy ID was provided")
-        policy_id = policy
+class FolderPolicyCache:
+    """Utility class for caching names and ids of folders and policies."""
 
-    # if it's a string, it's the policy name and needs to be resolved
-    elif isinstance(policy, str):
-        logger.debug("Policy name was provided")
-        policy_id = nessus.get_policy_id(policy)
-        logger.debug(f"Resolved policy ID is {policy_id}")
-        if not policy_id:
-            logger.error(f'Invalid policy name "{policy}"')
-            return
+    def __init__(self):
+        self.folder_map = {}
+        self.policy_map = {}
+        self.uuid_map = {}
 
-    # anything else is invalid lol
-    else:
-        logger.error("The policy is invalid")
+    def resolve_folder(self, folder: Union[int, str]) -> Optional[int]:
+        if isinstance(folder, int):
+            return folder
+
+        if isinstance(folder, str):
+            # Try to get it from the cache
+            folder_id = self.folder_map.get(folder)
+
+            # If unsuccessful, try to get it from Nessus
+            if folder_id is None:
+                folder_id = nessus.get_folder_id(folder)
+
+            # If unsuccessful, create it
+            if folder_id is None:
+                logger.info(f"Creating folder '{folder}'")
+                response = nessus.folders_create(folder)
+                folder_id = response.get("id")
+
+            if folder_id is not None:
+                # Cache the name -> id
+                self.folder_map[folder] = folder_id
+                return folder_id
+
+    def resolve_policy(self, policy: Union[int, str]) -> Optional[int]:
+        if isinstance(policy, int):
+            return policy
+
+        if isinstance(policy, str):
+            policy_id = self.policy_map.get(policy)
+
+            if policy_id is None:
+                policy_id = nessus.get_policy_id(policy)
+
+            if policy_id:
+                # Cache the name -> id
+                self.policy_map[policy] = policy_id
+                return policy_id
+
+    def get_policy_uuid(self, policy_id: int) -> Optional[int]:
+        policy_uuid = self.uuid_map.get(policy_id)
+
+        if policy_uuid is None:
+            policy_uuid = nessus.get_policy_uuid(policy_id)
+
+        if policy_uuid:
+            # Cache the id -> uuid
+            self.uuid_map[policy_id] = policy_uuid
+            return policy_uuid
+
+
+def create_scans(definitions: dict):
+    """Creates the scans and folders as per the supplied definitions."""
+
+    logger.info(f"Parsing scan definitions")
+
+    # Basic sanity checks
+    scan_defs = definitions.get("scans")
+    if not scan_defs:
+        logger.error("Missing key 'scans' in definitions")
         return
 
-    return policy_id
-
-
-def resolve_template_uuid(policy_id):
-    template_uuid = nessus.get_policy_uuid(policy_id)
-    logger.debug(f"Template UUID is {template_uuid}")
-    if not template_uuid:
-        logger.error(f"Could not resolve template UUID for policy ID {policy_id}")
+    if not isinstance(scan_defs, dict):
+        logger.error("Invalid key 'scans' in definitions, not a dict")
         return
 
-    return template_uuid
+    cache = FolderPolicyCache()
+    defaults = definitions.get("defaults", {})
+    scans_created = 0
 
-
-def resolve_folder(folder):
-    if isinstance(folder, int):
-        return folder
-
-    if isinstance(folder, str):
-        return nessus.get_folder_id(folder) or nessus.create_folder(folder)
-
-    else:
-        logger.error("The folder is invalid")
-        return
-
-
-def create():
-    # list all available policies (-l)
-    if settings.args.list_policies:
-        list_policies()
-        return
-
-    # ensure the input file exists and is valid
-
-    if not settings.args.infile:
-        logger.error("Input file needs to be set")
-        return
-
-    infile = Path(settings.args.infile)
-    if not infile.is_file():
-        logger.error("Input file doesn't exist or isn't a file")
-        return
-
-    # yaml is a superset of json, so it can parse both
-    with open(infile, "r") as stream:
-        try:
-            data = yaml.safe_load(stream)
-        except yaml.scanner.ScannerError:
-            logger.error("Error while parsing input file - is it valid?")
-            return
-
-    # format checks
-    if "scans" not in data or not data["scans"]:
-        logger.error('Missing "scans" key in input file')
-        return
-
-    # go through all scans
-
-    defaults = data.get("defaults", {})
-    for name, details in data["scans"].items():
-        # copy defaults and merge with current scan, overwriting the defaults
-        current_scan = {**copy.deepcopy(defaults), **details}
-
-        # Policy - required
-
-        policy = current_scan.get("policy")
-        if not policy:
-            logger.error(f'Scan "{name}" is missing the policy - skipping')
+    for name, details in scan_defs.items():
+        if not isinstance(details, dict):
+            logger.error(f"Scan '{name}' has invalid definitions, skipping")
             continue
 
-        policy_id = resolve_policy_id(policy)
-        if not policy_id:
-            logger.error(f'Scan "{name}" has an invalid policy - skipping')
+        # Exclusions should be combined and not overwritten, so we pop them
+        # before merging the defaults with the current scan's definitions
+        exclusions = details.pop("exclusions", [])
+
+        # Copy the default values and overwrite them with the current ones
+        scan = {**copy.deepcopy(defaults), **details}
+
+        # Add the previously popped exclusions
+        scan_exclusions = scan.setdefault("exclusions", [])
+        scan_exclusions.extend(exclusions)
+
+        # Policy (required)
+        policy = scan.get("policy")
+        if policy is None:
+            logger.error(f"Scan '{name}' is missing the policy, skipping")
             continue
 
-        template_uuid = resolve_template_uuid(policy_id)
-        if not template_uuid:
-            return
-
-        # Folder - required
-
-        folder = current_scan.get("folder")
-        if not folder:
-            logger.error(f'Scan "{name}" is missing the folder - skipping')
+        policy_id = cache.resolve_policy(policy)
+        if policy_id is None:
+            logger.error(f"Scan '{name}' has an invalid policy, skipping")
             continue
 
-        folder_id = resolve_folder(folder)
-        if not folder_id:
-            return
+        logger.debug(f"Scan '{name}' has policy id '{policy_id}'")
 
-        # Targets - required
-
-        targets = current_scan.get("targets")
-        if not targets:
-            logger.error(f'Scan "{name}" is missing the targets - skipping')
+        template_uuid = cache.get_policy_uuid(policy_id)
+        if template_uuid is None:
+            logger.error(f"Scan '{name}' has a policy with an invalid editor template, skipping")
             continue
 
-        exclusions = current_scan.get("exclusions", [])  # These are optional
+        logger.debug(f"Scan '{name}' has template UUID '{template_uuid}'")
 
-        target_list = resolve_scope(targets, exclusions)
+        # Folder (required)
+        folder = scan.get("folder")
+        if folder is None:
+            logger.error(f"Scan '{name}' is missing the folder, skipping")
+            continue
+
+        folder_id = cache.resolve_folder(folder)
+        if folder_id is None:
+            logger.error(f"Scan '{name}' has an invalid folder, skipping")
+            continue
+
+        logger.debug(f"Scan '{name}' has folder id '{folder_id}'")
+
+        # Targets (required)
+        targets = scan.get("targets")
+        if targets is None:
+            logger.error(f"Scan '{name}' is missing the targets, skipping")
+            continue
+
+        # Exclusions (optional)
+        exclusions = scan.get("exclusions", [])
+
+        target_list = resolve_targets(targets, exclusions)
         if not target_list:
+            logger.error(f"Scan '{name}' has no targets in scope, skipping")
+            continue
+
+        text_targets = ", ".join(target_list)
+        logger.debug(f"Scan '{name}' has targets '{text_targets}'")
+
+        # Description (optional)
+        description = scan.get("description")
+        if description is not None:
+            description = str(description)  # just to be sure
+
+        # Create the scan
+        scan_settings = ScanCreateSettings(
+            name=name,
+            text_targets=text_targets,
+            description=description,
+            policy_id=policy_id,
+            folder_id=folder_id,
+        )
+
+        logger.info(f"Creating scan '{name}'")
+        nessus.scans_create(template_uuid, scan_settings)
+        scans_created += 1
+
+    logger.info(f"Created {scans_created} scans")
+
+
+def run():
+    # Load the input file definitions
+    with args.file.open("r") as fp:
+        try:
+            definitions = yaml.safe_load(fp)
+        except ScannerError:
+            logger.error("Couldn't parse input file, is it valid yaml?")
             return
 
-        text_targets = ",".join(target_list)
+    if definitions is None:
+        logger.error("The input file is empty")
+        return
 
-        # Description - optional
-
-        description = current_scan.get("description")
-        if description is not None and not isinstance(description, str):
-            logger.error(f'Scan "{name}" has an invalid description - ignoring')
-            description = None
-
-        # Creating the Scan
-
-        nessus.create_scan(
-            template_uuid,
-            name,
-            text_targets,
-            description,
-            policy_id,
-            folder_id,
-        )
+    create_scans(definitions)

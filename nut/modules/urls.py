@@ -1,57 +1,73 @@
-from nut.config import settings
-from nut.modules.logger import Logger
-from nut.modules.nessus import nessus
+import logging
 
-logger = Logger()
+from nut.settings import args
+from nut.utils import nessus
+
+logger = logging.getLogger(__name__)
+
+SERVICE_DETECTION_PLUGIN_ID = 22964
 
 
-def urls(scan_ids):
-    outfile = settings.args.outfile or "webservers.txt"
+def _build_url(proto, host, port):
+    """Returns a URL from the supplied parts."""
 
-    logger.info("Generating list of web servers")
-    url_list = set()
+    # if the port is the default for the protocol we can omit it
+    if (proto == "http" and port == 80) or (proto == "https" and port == 443):
+        return f"{proto}://{host}"
 
-    def _add(_proto, _host, _port):
-        # http implies port 80 and https implies port 443 so we can omit it
-        if _proto == "https" and _port == 443 or _proto == "http" and _port == 80:
-            url_list.add(f"{_proto}://{_host}")
-        else:
-            url_list.add(f"{_proto}://{_host}:{_port}")
+    return f"{proto}://{host}:{port}"
 
-    success = False
+
+def get_urls(scan_ids: list[int]) -> set[str]:
+    logger.info("Searching scans for webservers")
+
+    urls = set()
 
     for scan_id in scan_ids:
-        # Service Detection - Plugin ID 22964
-        #  Shows www as svc_name for both http and https, but the output text is different
-        #   http: A web server is running on this port.
-        #   https: A web server is running on this port through ...
-        service_detection = nessus.get_plugin_details(scan_id, 22964)
+        logger.debug(f"Searching scan '{scan_id}'")
 
-        # If the scan hasn't been run, has failed, or if the plugin simply doesn't exist
-        # we need to skip it
-        if not service_detection or not service_detection["outputs"]:
-            logger.error(f"Scan ID {scan_id} doesn't have service detection - did it run and finish?")
+        # Get the output of the 'Service Detection' plugin
+        service_detection = nessus.get_plugin_details(scan_id, SERVICE_DETECTION_PLUGIN_ID)
+        if not service_detection:
+            logger.error(f"Scan '{scan_id}' has no 'Service Detection', did it run and finish?")
             continue
 
-        for output in service_detection["outputs"]:
-            p_out = output["plugin_output"]
-            if not p_out.startswith("A web server is running"):
+        outputs = service_detection.get("outputs")
+        if not outputs:
+            logger.error(f"Scan '{scan_id}' has no 'Service Detection' results")
+            continue
+
+        # The 'Service Detection' plugin identifies both http and https as
+        # 'www' in the 'svc_name' field, but the output text is different:
+        #     http: A web server is running on this port.
+        #     https: A web server is running on this port through [...]
+        for output in outputs:
+            plugin_output = output["plugin_output"]
+
+            # We can use this to check if the current output is a web server
+            if not plugin_output.startswith("A web server is running"):
                 continue
 
-            # At this point we have a valid entry
-            success = True
+            # And whether it's using http or https
+            proto = "https" if "through" in plugin_output else "http"
 
-            proto = "https" if "through" in p_out else "http"
             for svc, hosts in output["ports"].items():
                 port = int(svc.split(" / ", 1)[0])
                 for host in hosts:
-                    _add(proto, host["hostname"], port)
+                    url = _build_url(proto, host["hostname"], port)
+                    logger.debug(f"Found web server '{url}'")
+                    urls.add(url)
 
-    # If there wasn't a single valid scan we inform the user and abort
-    if not success:
-        logger.error("None of the scans found a web server")
+    return urls
+
+
+def run():
+    urls = get_urls(args.scan_ids)
+    if not urls:
+        logger.error("None of the scans detected a webserver")
         return
 
-    with open(outfile, "w") as fp:
-        logger.info(f'Writing file "{outfile}"')
-        fp.write("\n".join(url_list))
+    outfile = args.outfile
+    logger.info(f"Writing URLs to '{outfile}'")
+    with outfile.open("w") as fp:
+        fp.write("\n".join(urls))
