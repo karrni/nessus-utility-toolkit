@@ -4,8 +4,9 @@ from argparse import ArgumentTypeError
 from pathlib import Path
 
 from colorama import Fore, Style
+from nessus.exceptions import NessusException
 
-from nut.config import settings
+from nut.settings import args
 from nut.utils import resolve_scan_ids
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,8 @@ def path_file(string):
 
 
 def parse_args():
+    """Parse command line arguments."""
+
     # --- Common Arguments ---
 
     # common arguments that all parsers share
@@ -78,6 +81,7 @@ def parse_args():
     _scans.add_argument("-s", "--scans", metavar="SCAN", nargs="*", default=[], type=str, help="Scan ID or name")
     _scans.add_argument("-f", "--folders", metavar="FOLDER", nargs="*", default=[], type=str, help="Folder ID or name")
     _scans.set_defaults(uses_scans=True)  # indicates that the module uses scans
+    _scans.set_defaults(scan_ids=[])
 
     # --- Main Parser ---
 
@@ -90,12 +94,13 @@ def parse_args():
     parser_create = subparsers.add_parser("create", parents=[_common], help=_text, description=_text)
     parser_create.add_argument("file", type=path_file, help="Yaml file with the scan definitions")
 
-    # --- List ---
-    _text = "List folders, scans, and scan policies"
-    parser_list = subparsers.add_parser("list", parents=[_common], help=_text, description=_text)
-    list_group = parser_list.add_mutually_exclusive_group()
-    list_group.add_argument("-s", "--scans", action="store_true", help="Include scans in each folder")
-    list_group.add_argument("-p", "--policies", action="store_true", help="List available scan policies")
+    # --- Exploits ---
+    _text = "List vulnerabilities with known exploits"
+    parser_exploits = subparsers.add_parser("exploits", parents=[_common, _scans], help=_text, description=_text)
+    framework_group = parser_exploits.add_mutually_exclusive_group()
+    framework_group.set_defaults(framework=None)
+    framework_group.add_argument("-ms", "--metasploit", action="store_const", dest="framework", const="metasploit")
+    framework_group.add_argument("-co", "--core-impact", action="store_const", dest="framework", const="core")
 
     # --- Export ---
     _text = "Export scans as .nessus files"
@@ -103,58 +108,58 @@ def parse_args():
     parser_export.add_argument("-m", "--merge", action="store_true", help="Merge all scans into one")
     parser_export.add_argument("-o", "--outdir", type=Path, default=Path())
 
-    # --- Exploits ---
-    _text = "List vulnerabilities with known exploits"
-    parser_exploits = subparsers.add_parser("exploits", parents=[_common, _scans], help=_text, description=_text)
-    framework_group = parser_exploits.add_mutually_exclusive_group()
-    framework_group.add_argument("-ms", "--metasploit", action="store_const", dest="framework", const="metasploit")
-    framework_group.add_argument("-co", "--core-impact", action="store_const", dest="framework", const="core")
+    # --- List ---
+    _text = "List folders, scans, and scan policies"
+    parser_list = subparsers.add_parser("list", parents=[_common], help=_text, description=_text)
+    list_group = parser_list.add_mutually_exclusive_group()
+    list_group.add_argument("-s", "--scans", action="store_true", help="Include scans in each folder")
+    list_group.add_argument("-p", "--policies", action="store_true", help="List available scan policies")
 
     # --- URLs ---
     _text = "Create a list of all identified web servers"
     parser_urls = subparsers.add_parser("urls", parents=[_common, _scans], help=_text, description=_text)
     parser_urls.add_argument("-o", "--output", metavar="FILE", dest="outfile", type=Path, default=Path("urls.txt"))
 
-    args = parser.parse_args(namespace=settings.args)
+    parser.parse_args(namespace=args)
 
-    # Ensure that either scans or folders was passed if the module uses scans
+    # Ensure that scans/folders were passed if the module uses scans ids
     if args.uses_scans and not (args.scans or args.folders):
         parser.error("at least one of the following arguments is required: scans, folders")
 
-    return args
-
 
 def main():
-    args = parse_args()
+    parse_args()
 
-    # The log level is determined by the '-v' flag, so we log after
     setup_logging(args.loglevel)
     logger.debug(f"{args=}")
 
     logger.info("Connecting to Nessus")
 
-    # Resolve the scan IDs if the chosen module uses them
     if args.uses_scans:
-        logger.debug("Resolving scan IDs")
-        settings.scan_ids = resolve_scan_ids(args.scans, args.folders)
-        if not settings.scan_ids:
-            logger.error("No valid scan ID found, please check your input")
+        logger.debug("Resolving scan ids")
+
+        args.scan_ids = resolve_scan_ids(args.scans, args.folders)
+        if not args.scan_ids:
+            logger.error("No valid scan ids found, please check your input")
             return
 
     # --- Modules ---
     from nut.modules import create, exploits, export, list, urls
 
-    if args.module == "list":
-        list.run()
-    elif args.module == "urls":
-        urls.run()
-    elif args.module == "export":
-        export.run()
-    elif args.module == "create":
+    if args.module == "create":
         create.run()
     elif args.module == "exploits":
         exploits.run()
+    elif args.module == "export":
+        export.run()
+    elif args.module == "list":
+        list.run()
+    elif args.module == "urls":
+        urls.run()
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except NessusException as e:
+        logger.error(f"Error from Nessus: {e}")

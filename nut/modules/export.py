@@ -3,17 +3,17 @@ from datetime import datetime
 
 from pathvalidate import sanitize_filename, sanitize_filepath
 
-from nut.config import settings
+from nut.settings import args
 from nut.utils import nessus
 
 logger = logging.getLogger(__name__)
 
 
 def run():
-    basedir = settings.args.outdir
-    scan_ids = settings.scan_ids
+    basedir = args.outdir
+    scan_ids = args.scan_ids
 
-    if settings.args.merge:
+    if args.merge:
         logger.info("Exporting and merging scans")
 
         scan_name = "Merged Export"

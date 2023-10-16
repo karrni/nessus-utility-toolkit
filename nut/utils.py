@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from ipaddress import ip_address
 from textwrap import shorten
-from typing import Union
+from typing import Collection, Optional
 
 from nessus import NessusAPI
 from netaddr import (
@@ -19,39 +19,41 @@ from netaddr import (
 from urllib3 import disable_warnings
 from urllib3.exceptions import InsecureRequestWarning
 
-from nut.config import settings
+from nut.settings import config
 
+# Disable warnings for insecure connections
 disable_warnings(InsecureRequestWarning)
+
 logger = logging.getLogger(__name__)
 
-
+# Create a central NessusAPI instance
 nessus = NessusAPI(
-    settings.config["nessus"]["url"],
-    access_key=settings.config["nessus"]["access_key"],
-    secret_key=settings.config["nessus"]["secret_key"],
-    username=settings.config["nessus"]["username"],
-    password=settings.config["nessus"]["password"],
+    config["nessus"]["url"],
+    access_key=config["nessus"]["access_key"],
+    secret_key=config["nessus"]["secret_key"],
+    username=config["nessus"]["username"],
+    password=config["nessus"]["password"],
 )
 
 
 def resolve_scan_ids(scans: list[str], folders: list[str]) -> list[int]:
     """
-    Resolves a list of scans and folders into a list of unique scan ids.
+    Resolves lists of scan and folder ids or names into a list of unique scan ids.
     """
 
     # Fetch list of all scans and folders
     data = nessus.scans_list()
 
-    # Dict that maps folder name to id
+    # Maps folder names to ids
     folder_map = {f["name"]: f["id"] for f in data["folders"]}
 
     # Set of all valid scan ids
     valid_scan_ids = set()
 
-    # Dict that maps scan name to id(s)
+    # Maps scan names to id(s)
     scan_map = defaultdict(set)
 
-    # Dict that maps folder id to scan ids
+    # Maps folder ids to scan ids it contains
     folder_scans_map = defaultdict(set)
 
     for scan in data["scans"]:
@@ -123,27 +125,31 @@ def resolve_scan_ids(scans: list[str], folders: list[str]) -> list[int]:
     return scan_ids
 
 
-def _to_ips_and_hosts(items: list) -> tuple[IPSet, set]:
+def _split_targets(targets: list) -> tuple[IPSet, set[str]]:
+    """
+    Splits targets into IPs and hostnames.
+    """
+
     ips, hosts = IPSet(), set()
 
-    for item in items:
+    for target in targets:
         # NOTE: The order of the checks is important. Unfortunately, there's no
         #   'valid_cidr()' function, so we can't use continuous if/elif/else
         #   statements and have to use 'continue' and 'try/except'.
 
-        # Check if the item is a single IP address
-        if valid_ipv4(item):
-            ips.add(IPAddress(item))
+        # Check if the target is a single IP address
+        if valid_ipv4(target):
+            ips.add(IPAddress(target))
 
             # Every address is also a valid CIDR network, so explicitly skip
             continue
 
-        # Check if the item is a network in CIDR notation
+        # Check if the target is a network in CIDR notation
         # IMPORTANT: This check **needs** to come before the nmap and glob
         #   checks, because they do not recognize the network and broadcast
         #   addresses!
         try:
-            network = IPNetwork(item)
+            network = IPNetwork(target)
 
             for ip in network.iter_hosts():
                 ips.add(ip)
@@ -154,47 +160,51 @@ def _to_ips_and_hosts(items: list) -> tuple[IPSet, set]:
         except AddrFormatError:
             pass
 
-        # Check if the item is a valid nmap range
-        if valid_nmap_range(item):
-            for ip in iter_nmap_range(item):
+        # Check if the target is a valid nmap range
+        if valid_nmap_range(target):
+            for ip in iter_nmap_range(target):
                 ips.add(ip)
 
-        # Check if the item is a valid glob notation
-        elif valid_glob(item):
-            for ip in IPGlob(item):
+        # Check if the target is a valid glob notation
+        elif valid_glob(target):
+            for ip in IPGlob(target):
                 ips.add(ip)
 
-        # All other items are presumably hostnames
+        # All other targets are presumably hostnames
         else:
-            hosts.add(item)
+            hosts.add(target)
 
     return ips, hosts
 
 
-def resolve_scope(targets: list, exclusions: Union[list, None] = None) -> list[str]:
-    scope_ips, scope_hosts = _to_ips_and_hosts(targets)
+def resolve_targets(targets: list, exclusions: Optional[list] = None) -> list[str]:
+    """
+    Filters a list of IPs and hostnames and returns a condensed list of targets.
+    """
+
+    target_ips, target_hosts = _split_targets(targets)
 
     if exclusions is not None:
-        exclude_ips, exclude_hosts = _to_ips_and_hosts(exclusions)
+        exclude_ips, exclude_hosts = _split_targets(exclusions)
 
-        scope_ips -= exclude_ips
-        scope_hosts -= exclude_hosts
+        target_ips -= exclude_ips
+        target_hosts -= exclude_hosts
 
-    scope = []
+    target_defs = []
 
-    for iprange in scope_ips.iter_ipranges():
+    for iprange in target_ips.iter_ipranges():
         # To avoid ranges like 192.168.0.1-192.168.0.1, check the length of the
         # range and if it's 1, only add the first (and only) item
         if len(iprange) == 1:
-            scope.append(str(iprange[0]))
+            target_defs.append(str(iprange[0]))
 
         else:
-            scope.append(str(iprange))
+            target_defs.append(str(iprange))
 
-    # Sort the list of hosts and add them to the scope
-    scope.extend(sorted(scope_hosts))
+    # Sort the list of hosts and append them to the target definitions
+    target_defs.extend(sorted(target_hosts))
 
-    return scope
+    return target_defs
 
 
 def uniqify(seq):
@@ -215,7 +225,7 @@ def uniqify(seq):
     return result
 
 
-def sort_hosts(hostlist, unique=True):
+def sort_hosts(hostlist: Collection[str], unique: bool = True) -> list[str]:
     """
     Sorts a list of hostnames and/or IP addresses.
 

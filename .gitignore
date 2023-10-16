@@ -1,6 +1,7 @@
 **.yml
 **.json
 **.txt
+**.nessus
 
 # Local cache
 .ruff_cache

@@ -6,13 +6,13 @@ import yaml
 from nessus.models import ScanCreateSettings
 from yaml.scanner import ScannerError
 
-from nut.config import settings
-from nut.utils import nessus, resolve_scope
+from nut.settings import args
+from nut.utils import nessus, resolve_targets
 
 logger = logging.getLogger(__name__)
 
 
-class CreateCache:
+class FolderPolicyCache:
     """Utility class for caching names and ids of folders and policies."""
 
     def __init__(self):
@@ -34,6 +34,7 @@ class CreateCache:
 
             # If unsuccessful, create it
             if folder_id is None:
+                logger.info(f"Creating folder '{folder}'")
                 response = nessus.folders_create(folder)
                 folder_id = response.get("id")
 
@@ -69,40 +70,40 @@ class CreateCache:
             return policy_uuid
 
 
-def run():
-    infile = settings.args.file
+def create_scans(definitions: dict):
+    """Creates the scans and folders as per the supplied definitions."""
 
-    with infile.open("r") as fp:
-        try:
-            data = yaml.safe_load(fp)
-        except ScannerError:
-            logger.error("Couldn't parse input file, is it valid yaml?")
-            return
+    logger.info(f"Parsing scan definitions")
 
-    if data is None:
-        logger.error("The input file is empty")
+    # Basic sanity checks
+    scan_defs = definitions.get("scans")
+    if not scan_defs:
+        logger.error("Missing key 'scans' in definitions")
         return
 
-    logger.info(f"Parsing scan definitions from '{infile}'")
-
-    # Basic sanity check
-    if not data.get("scans"):
-        logger.error("Missing key 'scans' in input file")
+    if not isinstance(scan_defs, dict):
+        logger.error("Invalid key 'scans' in definitions, not a dict")
         return
 
-    # Get the default values
-    defaults = data.get("defaults", {})
-
-    cache = CreateCache()
+    cache = FolderPolicyCache()
+    defaults = definitions.get("defaults", {})
     scans_created = 0
 
-    for name, details in data["scans"].items():
+    for name, details in scan_defs.items():
         if not isinstance(details, dict):
             logger.error(f"Scan '{name}' has invalid definitions, skipping")
             continue
 
+        # Exclusions should be combined and not overwritten, so we pop them
+        # before merging the defaults with the current scan's definitions
+        exclusions = details.pop("exclusions", [])
+
         # Copy the default values and overwrite them with the current ones
         scan = {**copy.deepcopy(defaults), **details}
+
+        # Add the previously popped exclusions
+        scan_exclusions = scan.setdefault("exclusions", [])
+        scan_exclusions.extend(exclusions)
 
         # Policy (required)
         policy = scan.get("policy")
@@ -146,7 +147,7 @@ def run():
         # Exclusions (optional)
         exclusions = scan.get("exclusions", [])
 
-        target_list = resolve_scope(targets, exclusions)
+        target_list = resolve_targets(targets, exclusions)
         if not target_list:
             logger.error(f"Scan '{name}' has no targets in scope, skipping")
             continue
@@ -173,3 +174,19 @@ def run():
         scans_created += 1
 
     logger.info(f"Created {scans_created} scans")
+
+
+def run():
+    # Load the input file definitions
+    with args.file.open("r") as fp:
+        try:
+            definitions = yaml.safe_load(fp)
+        except ScannerError:
+            logger.error("Couldn't parse input file, is it valid yaml?")
+            return
+
+    if definitions is None:
+        logger.error("The input file is empty")
+        return
+
+    create_scans(definitions)

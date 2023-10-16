@@ -1,31 +1,33 @@
 import logging
 
-from nut.config import settings
+from nut.settings import args
 from nut.utils import nessus
 
 logger = logging.getLogger(__name__)
 
+SERVICE_DETECTION_PLUGIN_ID = 22964
 
-def build_url(proto, host, port):
+
+def _build_url(proto, host, port):
+    """Returns a URL from the supplied parts."""
+
     # if the port is the default for the protocol we can omit it
     if (proto == "http" and port == 80) or (proto == "https" and port == 443):
-        url = f"{proto}://{host}"
-    else:
-        url = f"{proto}://{host}:{port}"
-    logger.debug(f"Found web server '{url}'")
-    return url
+        return f"{proto}://{host}"
+
+    return f"{proto}://{host}:{port}"
 
 
 def get_urls(scan_ids: list[int]) -> set[str]:
-    logger.info("Searching scans for web servers")
+    logger.info("Searching scans for webservers")
 
     urls = set()
 
     for scan_id in scan_ids:
-        logger.debug(f"Checking scan '{scan_id}'")
-        # Get the output of the 'Service Detection' plugin
-        service_detection = nessus.get_plugin_details(scan_id, 22964)
+        logger.debug(f"Searching scan '{scan_id}'")
 
+        # Get the output of the 'Service Detection' plugin
+        service_detection = nessus.get_plugin_details(scan_id, SERVICE_DETECTION_PLUGIN_ID)
         if not service_detection:
             logger.error(f"Scan '{scan_id}' has no 'Service Detection', did it run and finish?")
             continue
@@ -52,19 +54,20 @@ def get_urls(scan_ids: list[int]) -> set[str]:
             for svc, hosts in output["ports"].items():
                 port = int(svc.split(" / ", 1)[0])
                 for host in hosts:
-                    urls.add(build_url(proto, host["hostname"], port))
+                    url = _build_url(proto, host["hostname"], port)
+                    logger.debug(f"Found web server '{url}'")
+                    urls.add(url)
 
     return urls
 
 
 def run():
-    urls = get_urls(settings.scan_ids)
-
+    urls = get_urls(args.scan_ids)
     if not urls:
-        logger.error("None of the scans detected a web server")
+        logger.error("None of the scans detected a webserver")
         return
 
-    outfile = settings.args.outfile
+    outfile = args.outfile
     logger.info(f"Writing URLs to '{outfile}'")
     with outfile.open("w") as fp:
         fp.write("\n".join(urls))
