@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "nessus-utility-toolkit"
-version = "1.3.0"
+version = "1.4.0"
 description = "Toolkit to automate and simplify common tasks involving Nessus"
 authors = ["karrni <karrni@proton.me>"]
 readme = "README.md"

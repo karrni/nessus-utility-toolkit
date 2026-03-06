@@ -115,6 +115,10 @@ def parse_args():
     list_group.add_argument("-s", "--scans", action="store_true", help="Include scans in each folder")
     list_group.add_argument("-p", "--policies", action="store_true", help="List available scan policies")
 
+    # --- Scan ---
+    _text = "Start Nessus scans"
+    parser_scan = subparsers.add_parser("scan", parents=[_common, _scans], help=_text, description=_text)
+
     # --- URLs ---
     _text = "Create a list of all identified web servers"
     parser_urls = subparsers.add_parser("urls", parents=[_common, _scans], help=_text, description=_text)
@@ -144,7 +148,7 @@ def main():
             return
 
     # --- Modules ---
-    from nut.modules import create, exploits, export, list, urls
+    from nut.modules import create, exploits, export, list, scan, urls
 
     if args.module == "create":
         create.run()
@@ -154,6 +158,8 @@ def main():
         export.run()
     elif args.module == "list":
         list.run()
+    elif args.module == "scan":
+        scan.run()
     elif args.module == "urls":
         urls.run()
 

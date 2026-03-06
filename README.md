@@ -30,7 +30,7 @@ After that, the `nut` command should be available from your command line.
 
 ## Configuration
 
-To use nut, set the Nessus URL and either **user credentials** or **API tokens** in the configuration file which is located under `~/.config/nut.conf`. Upon first run, the example config file will be copied to this location.
+To use nut, set the Nessus URL and either **user credentials** or **API tokens** in the configuration file which is located under `~/.config/nut/nut.conf`. Upon first run, the example config file will be copied to this location.
 
 The Nessus URL must not contain a path, so for example `https://nessus.local:8834`.
 
